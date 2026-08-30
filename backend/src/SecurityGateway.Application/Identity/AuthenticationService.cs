@@ -1,7 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
+using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Identity.DTOs;
+using SecurityGateway.Application.ThreatDetection;
+using SecurityGateway.Application.ThreatDetection.DTOs;
 using SecurityGateway.Domain.Identity;
+using SecurityGateway.Domain.ThreatDetection;
 
 namespace SecurityGateway.Application.Identity;
 
@@ -11,6 +15,8 @@ public sealed class AuthenticationService : IAuthenticationService
     private readonly ISessionRepository _sessionRepository;
     private readonly ITokenRepository _tokenRepository;
     private readonly IDeviceIdentityService _deviceIdentityService;
+    private readonly IAccessControlService _accessControlService;
+    private readonly IThreatDetectionService _threatDetectionService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
@@ -22,6 +28,8 @@ public sealed class AuthenticationService : IAuthenticationService
         ISessionRepository sessionRepository,
         ITokenRepository tokenRepository,
         IDeviceIdentityService deviceIdentityService,
+        IAccessControlService accessControlService,
+        IThreatDetectionService threatDetectionService,
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
         IEmailService emailService,
@@ -32,6 +40,8 @@ public sealed class AuthenticationService : IAuthenticationService
         _sessionRepository = sessionRepository;
         _tokenRepository = tokenRepository;
         _deviceIdentityService = deviceIdentityService;
+        _accessControlService = accessControlService;
+        _threatDetectionService = threatDetectionService;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _emailService = emailService;
@@ -95,12 +105,19 @@ public sealed class AuthenticationService : IAuthenticationService
 
         if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
         {
+            await RecordAuthenticationFailureAsync(request.UsernameOrEmail, ipAddress ?? "unknown", cancellationToken).ConfigureAwait(false);
             throw new AuthenticationException("Invalid credentials.");
         }
 
         if (user.Status == UserStatus.Suspended || user.Status == UserStatus.Disabled)
         {
             throw new AuthenticationException("Account is not active.");
+        }
+
+        if (await _accessControlService.IsBlockedAsync(ipAddress ?? "unknown", deviceId: null, user.Id, cancellationToken).ConfigureAwait(false))
+        {
+            await RecordAccessBlockedAsync(user.Id, ipAddress ?? "unknown", "User or IP is blocklisted", cancellationToken).ConfigureAwait(false);
+            throw new AuthenticationException("Access denied by security policy.");
         }
 
         user.LastLoginAt = DateTimeOffset.UtcNow;
@@ -260,6 +277,16 @@ public sealed class AuthenticationService : IAuthenticationService
         var deviceEnrollment = deviceRequest ?? CreateFallbackDeviceRequest(userAgent);
         var deviceResult = await _deviceIdentityService.RecognizeOrEnrollAsync(user.Id, deviceEnrollment, ipAddress ?? "unknown", cancellationToken).ConfigureAwait(false);
 
+        if (deviceResult.Device is not null)
+        {
+            var trustResult = await _accessControlService.EvaluateDeviceTrustAsync(user.Id, deviceResult.Device.Id, ipAddress ?? "unknown", cancellationToken).ConfigureAwait(false);
+
+            if (trustResult.IsBlocked)
+            {
+                throw new AuthenticationException("Access denied by security policy.");
+            }
+        }
+
         return new LoginResponse
         {
             User = MapToDto(user),
@@ -350,6 +377,46 @@ public sealed class AuthenticationService : IAuthenticationService
         if (string.IsNullOrWhiteSpace(password) || password.Length < 12)
         {
             throw new AuthenticationException("Password must be at least 12 characters long.");
+        }
+    }
+
+    private async Task RecordAuthenticationFailureAsync(string usernameOrEmail, string ipAddress, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var user = await _userRepository.GetByUsernameOrEmailAsync(usernameOrEmail, cancellationToken).ConfigureAwait(false);
+
+            await _threatDetectionService.RecordEventAsync(new CreateSecurityEventRequest
+            {
+                Type = SecurityEventType.AuthenticationFailure,
+                Severity = SecurityEventSeverity.Low,
+                SourceIp = ipAddress,
+                UserId = user?.Id,
+                Description = $"Failed login attempt for {usernameOrEmail}"
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort threat detection; do not fail authentication because of logging.
+        }
+    }
+
+    private async Task RecordAccessBlockedAsync(Guid userId, string ipAddress, string reason, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _threatDetectionService.RecordEventAsync(new CreateSecurityEventRequest
+            {
+                Type = SecurityEventType.AccessBlocked,
+                Severity = SecurityEventSeverity.High,
+                SourceIp = ipAddress,
+                UserId = userId,
+                Description = reason
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort threat detection; do not fail authentication because of logging.
         }
     }
 }

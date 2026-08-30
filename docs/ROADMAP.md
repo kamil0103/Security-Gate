@@ -58,46 +58,85 @@
 
 **Milestone:** Devices are enrolled during authentication, recognized by fingerprint or device ID, and can be trusted, untrusted, blocked, or removed by the user.
 
-## Phase 5 — IP Intelligence
+## Phase 5 — IP Intelligence ✅
 
-- IP tracking
-- GeoIP abstraction
-- ASN/ISP lookup
-- VPN/proxy/Tor detection abstraction
-- Reputation provider abstraction
+- IP tracking (request counts, first/last seen, user/device associations)
+- GeoIP abstraction (`IGeoIpProvider`) with a null default implementation
+- ASN/ISP lookup fields on the `IpAddress` entity
+- VPN/proxy/Tor detection abstraction (`IVpnProxyDetector`) with a null default implementation
+- Reputation provider abstraction (`IReputationProvider`) with a null default implementation
+- `IpAddress` entity with IP ↔ user/device associations
+- `IpController` (`GET /api/ip/me`, `GET /api/ip/recent`, `GET /api/ip/{id}`)
+- EF Core migration `AddIpIntelligence`
 
-## Phase 6 — Access Control
+**Milestone:** Every proxied request is tracked, enriched with GeoIP, reputation, and VPN metadata via swappable providers, and exposed through a read-only API.
 
-- Unknown device challenge
-- Approval/denial workflow
-- Trusted devices and trusted networks
-- Blocking workflow
+## Phase 6 — Access Control ✅
 
-## Phase 7 — Application Policies
+- Unknown device challenge handled during login/register
+- Approval/denial workflow for pending devices (`AccessDecision`)
+- Trusted networks (`TrustedNetwork`) with CIDR matching
+- Blocking workflow (`BlocklistEntry`) for IPs, networks, devices, and users
+- `AccessControlService` integrating trust evaluation with device status
+- `AccessControlController` for administrators to manage networks, blocklist, and device decisions
+- EF Core migration `AddAccessControl`
 
-- Domain configuration
-- Per-application security policies
-- Per-application rules
+**Milestone:** Administrators can define trusted networks and blocklist entries, new devices on trusted networks are auto-approved, and blocked IPs/devices/users are denied access at login.
 
-## Phase 8 — Rate Limiting
+## Phase 7 — Application Policies ✅
 
-- Redis-backed rate limiting
-- IP/user/device/domain/endpoint limits
-- Temporary throttling and bans
-- Automatic escalation
+- `Application` entity with domain, name, upstream URL, and enabled status
+- `ApplicationPolicy` entity with per-application settings:
+  - Authentication requirement
+  - Anonymous access from trusted networks
+  - Allowed/blocked countries and IP addresses
+- `IApplicationPolicyService` for CRUD and policy evaluation
+- Gateway middleware resolves applications by `Host` header, evaluates policy, and routes to per-application upstream URLs
+- `ApplicationsController` and `ApplicationPoliciesController` for admin configuration
+- EF Core migration `AddApplications`
 
-## Phase 9 — WAF
+**Milestone:** Each proxied domain can be configured independently, and the gateway enforces authentication and IP-based access rules before forwarding traffic.
 
-- ModSecurity + OWASP CRS integration
-- WAF event consumption
-- Attack classification
+## Phase 8 — Rate Limiting ✅
 
-## Phase 10 — Threat Detection
+- Redis-backed rate limiting via `IRateLimitStore` and `RedisRateLimitStore`
+- Rate limit rules by scope: Global, IP, User, Device, Domain, Endpoint
+- Fixed-window counters with burst allowance
+- Automatic escalation to temporary IP blocklist entries when limits are exceeded by 2x
+- `RateLimitService` integrated into the gateway middleware (returns 429 when exceeded)
+- `RateLimitController` for admin rule management
+- EF Core migration `AddRateLimiting`
 
-- Threat scoring engine
-- Behavioral rules
-- Security events
-- Automatic response triggers
+**Milestone:** The gateway enforces configurable request rate limits per IP, user, device, domain, and endpoint, with automatic temporary bans for abusers.
+
+## Phase 9 — WAF ✅
+
+- `WafEvent` domain model for ModSecurity/CRS event ingestion
+- `IAttackClassifier` abstraction with `ModSecurityAttackClassifier`
+- Attack types: SQLi, XSS, LFI, RFI, RCE, command injection, path traversal, brute force, bot, scanning
+- `WafEventService` that ingests events, classifies attacks, and correlates with IP intelligence
+- `WafEventsController` with anonymous ingestion endpoint and admin search/recent endpoints
+- IP intelligence correlation: increments `AttackCount` and updates threat score/level
+- Reference `modsecurity-crs` service in `docker-compose.yml`
+- EF Core migration `AddWafEvents`
+
+**Milestone:** Security Gateway can consume WAF events from ModSecurity + OWASP CRS, classify attacks, and enrich IP intelligence with attack history.
+
+## Phase 10 — Threat Detection ✅
+
+- `SecurityEvent` and `ThreatScoreRule` domain entities
+- `IThreatDetectionService` for recording events and evaluating threat scores
+- Behavioral rules: count events of a given type within a time window and apply score impact
+- Automatic IP threat score escalation when thresholds are met
+- Security event generation integrated into:
+  - Authentication failures and access-blocked logins
+  - Rate limit exceeded
+  - High-severity WAF events
+  - Blocklist matches
+- `SecurityEventsController` and `ThreatScoreRulesController` for admin review and rule management
+- EF Core migration `AddThreatDetection`
+
+**Milestone:** The gateway maintains a unified security event feed, applies behavioral threat scoring rules, and updates IP reputation automatically.
 
 ## Phase 11 — Automatic Blocking
 
