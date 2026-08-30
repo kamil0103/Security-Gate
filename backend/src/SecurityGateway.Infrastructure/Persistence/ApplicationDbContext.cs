@@ -13,6 +13,8 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Session> Sessions => Set<Session>();
+    public DbSet<Device> Devices => Set<Device>();
+    public DbSet<DeviceIpAddress> DeviceIpAddresses => Set<DeviceIpAddress>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
 
@@ -40,6 +42,29 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.Property(e => e.RefreshTokenHash).HasMaxLength(128);
             entity.Property(e => e.IpAddress).HasMaxLength(64);
             entity.Property(e => e.UserAgent).HasMaxLength(512);
+        });
+
+        modelBuilder.Entity<Device>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.UserId, e.Fingerprint });
+            entity.HasOne(e => e.User).WithMany(u => u.Devices).HasForeignKey(e => e.UserId);
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Fingerprint).HasMaxLength(256);
+            entity.Property(e => e.PublicKey).HasMaxLength(512);
+            entity.Property(e => e.CredentialId).HasMaxLength(256);
+            entity.Property(e => e.UserAgent).HasMaxLength(512);
+            entity.Property(e => e.OperatingSystem).HasMaxLength(100);
+            entity.Property(e => e.Browser).HasMaxLength(100);
+            entity.Property(e => e.TrustStatus).HasConversion<string>().HasMaxLength(32);
+        });
+
+        modelBuilder.Entity<DeviceIpAddress>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.DeviceId, e.IpAddress }).IsUnique();
+            entity.HasOne(e => e.Device).WithMany(d => d.IpHistory).HasForeignKey(e => e.DeviceId);
+            entity.Property(e => e.IpAddress).HasMaxLength(64);
         });
 
         modelBuilder.Entity<PasswordResetToken>(entity =>
