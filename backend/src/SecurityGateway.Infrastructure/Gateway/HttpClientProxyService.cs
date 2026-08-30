@@ -23,17 +23,16 @@ public sealed class HttpClientProxyService : IProxyService
     public HttpClientProxyService(HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
-        ArgumentNullException.ThrowIfNull(httpClient.BaseAddress);
 
         _httpClient = httpClient;
     }
 
-    public async Task<ProxyResponse> ForwardAsync(ProxyRequestContext request, CancellationToken cancellationToken = default)
+    public async Task<ProxyResponse> ForwardAsync(ProxyRequestContext request, string? upstreamUrl = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var upstreamUrl = BuildUpstreamUrl(request.Path, request.QueryString);
-        using var upstreamRequest = new HttpRequestMessage(new HttpMethod(request.Method), upstreamUrl);
+        var requestUri = BuildRequestUri(upstreamUrl, request.Path, request.QueryString);
+        using var upstreamRequest = new HttpRequestMessage(new HttpMethod(request.Method), requestUri);
 
         foreach (var (name, values) in request.Headers)
         {
@@ -107,12 +106,23 @@ public sealed class HttpClientProxyService : IProxyService
         }
     }
 
-    private static string BuildUpstreamUrl(string path, string queryString)
+    private Uri BuildRequestUri(string? upstreamUrl, string path, string queryString)
     {
         var normalizedPath = path.StartsWith('/') ? path : "/" + path;
-        return string.IsNullOrEmpty(queryString)
+        var pathAndQuery = string.IsNullOrEmpty(queryString)
             ? normalizedPath
             : $"{normalizedPath}{queryString}";
+
+        if (string.IsNullOrWhiteSpace(upstreamUrl))
+        {
+            return new Uri(_httpClient.BaseAddress!, pathAndQuery);
+        }
+
+        var baseUri = upstreamUrl.EndsWith('/')
+            ? upstreamUrl
+            : upstreamUrl + "/";
+
+        return new Uri(new Uri(baseUri), pathAndQuery);
     }
 
     private static bool ShouldSkipRequestHeader(string name)

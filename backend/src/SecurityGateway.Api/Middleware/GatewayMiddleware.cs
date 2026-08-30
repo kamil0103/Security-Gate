@@ -1,5 +1,10 @@
-using System.Net;
+using System.Security.Claims;
+using SecurityGateway.Application.AccessControl;
+using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Gateway;
+using SecurityGateway.Application.IpIntelligence;
+using SecurityGateway.Application.RateLimiting;
+using SecurityGateway.Application.RateLimiting.Models;
 
 namespace SecurityGateway.Api.Middleware;
 
@@ -8,6 +13,10 @@ public sealed class GatewayMiddleware
     private readonly RequestDelegate _next;
     private readonly IProxyService _proxyService;
     private readonly IClientIpResolver _clientIpResolver;
+    private readonly IIpIntelligenceService? _ipIntelligenceService;
+    private readonly IApplicationPolicyService _applicationPolicyService;
+    private readonly IAccessControlService _accessControlService;
+    private readonly IRateLimitService _rateLimitService;
     private readonly GatewayOptions _options;
     private readonly ILogger<GatewayMiddleware> _logger;
 
@@ -15,12 +24,20 @@ public sealed class GatewayMiddleware
         RequestDelegate next,
         IProxyService proxyService,
         IClientIpResolver clientIpResolver,
+        IIpIntelligenceService? ipIntelligenceService,
+        IApplicationPolicyService applicationPolicyService,
+        IAccessControlService accessControlService,
+        IRateLimitService rateLimitService,
         GatewayOptions options,
         ILogger<GatewayMiddleware> logger)
     {
         _next = next;
         _proxyService = proxyService;
         _clientIpResolver = clientIpResolver;
+        _ipIntelligenceService = ipIntelligenceService;
+        _applicationPolicyService = applicationPolicyService;
+        _accessControlService = accessControlService;
+        _rateLimitService = rateLimitService;
         _options = options;
         _logger = logger;
     }
@@ -46,6 +63,61 @@ public sealed class GatewayMiddleware
             clientIpResult.IsTrusted,
             string.Join(" -> ", clientIpResult.ProxyChain));
 
+        if (_ipIntelligenceService is not null)
+        {
+            _ = _ipIntelligenceService.TrackAsync(new TrackIpRequest
+            {
+                IpAddress = clientIpResult.ClientIp
+            }, context.RequestAborted);
+        }
+
+        var host = context.Request.Host.Host;
+        var application = await _applicationPolicyService.GetApplicationByDomainAsync(host, context.RequestAborted).ConfigureAwait(false);
+
+        if (application is not null && !application.IsEnabled)
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await context.Response.WriteAsync("Application is disabled.", context.RequestAborted).ConfigureAwait(false);
+            return;
+        }
+
+        var isAuthenticated = context.User.Identity?.IsAuthenticated ?? false;
+        var isIpTrusted = await _accessControlService.IsIpTrustedAsync(clientIpResult.ClientIp, context.RequestAborted).ConfigureAwait(false);
+
+        if (application is not null)
+        {
+            var evaluation = await _applicationPolicyService.EvaluatePolicyAsync(application.Id, clientIpResult.ClientIp, isAuthenticated, isIpTrusted, context.RequestAborted).ConfigureAwait(false);
+
+            if (!evaluation.Allowed)
+            {
+                context.Response.StatusCode = evaluation.RequiresAuthentication && !evaluation.IsAuthenticated
+                    ? StatusCodes.Status401Unauthorized
+                    : StatusCodes.Status403Forbidden;
+
+                await context.Response.WriteAsync(evaluation.Reason ?? "Access denied.", context.RequestAborted).ConfigureAwait(false);
+                return;
+            }
+        }
+
+        var userId = GetUserId(context);
+        var rateLimitContext = new RateLimitRequestContext
+        {
+            IpAddress = clientIpResult.ClientIp,
+            UserId = userId,
+            Domain = context.Request.Host.Host,
+            Endpoint = path
+        };
+
+        var rateLimitResult = await _rateLimitService.CheckAsync(rateLimitContext, context.RequestAborted).ConfigureAwait(false);
+
+        if (!rateLimitResult.Allowed)
+        {
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.Response.Headers.RetryAfter = rateLimitResult.ResetAt.Subtract(DateTimeOffset.UtcNow).TotalSeconds.ToString("0");
+            await context.Response.WriteAsync(rateLimitResult.Reason ?? "Rate limit exceeded.", context.RequestAborted).ConfigureAwait(false);
+            return;
+        }
+
         var proxyRequest = new ProxyRequestContext
         {
             Method = context.Request.Method,
@@ -59,7 +131,8 @@ public sealed class GatewayMiddleware
             ClientIp = clientIpResult.ClientIp
         };
 
-        using var proxyResponse = await _proxyService.ForwardAsync(proxyRequest, context.RequestAborted).ConfigureAwait(false);
+        var upstreamUrl = application?.UpstreamUrl;
+        using var proxyResponse = await _proxyService.ForwardAsync(proxyRequest, upstreamUrl, context.RequestAborted).ConfigureAwait(false);
 
         context.Response.StatusCode = proxyResponse.StatusCode;
 
@@ -69,6 +142,14 @@ public sealed class GatewayMiddleware
         }
 
         await proxyResponse.Body.CopyToAsync(context.Response.Body, context.RequestAborted).ConfigureAwait(false);
+    }
+
+    private static Guid? GetUserId(HttpContext context)
+    {
+        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? context.User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
+        return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
     }
 
     private bool IsAdminPath(string path)
