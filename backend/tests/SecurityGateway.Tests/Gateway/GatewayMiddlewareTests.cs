@@ -20,6 +20,7 @@ public class GatewayMiddlewareTests
             _ => { nextInvoked = true; return Task.CompletedTask; },
             proxyService,
             resolver,
+            null,
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -43,6 +44,7 @@ public class GatewayMiddlewareTests
             _ => Task.CompletedTask,
             proxyService,
             resolver,
+            null,
             options,
             NullLogger<GatewayMiddleware>.Instance);
 

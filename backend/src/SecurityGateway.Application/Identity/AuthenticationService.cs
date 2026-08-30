@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Identity.DTOs;
 using SecurityGateway.Domain.Identity;
 
@@ -11,6 +12,7 @@ public sealed class AuthenticationService : IAuthenticationService
     private readonly ISessionRepository _sessionRepository;
     private readonly ITokenRepository _tokenRepository;
     private readonly IDeviceIdentityService _deviceIdentityService;
+    private readonly IAccessControlService _accessControlService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
@@ -22,6 +24,7 @@ public sealed class AuthenticationService : IAuthenticationService
         ISessionRepository sessionRepository,
         ITokenRepository tokenRepository,
         IDeviceIdentityService deviceIdentityService,
+        IAccessControlService accessControlService,
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
         IEmailService emailService,
@@ -32,6 +35,7 @@ public sealed class AuthenticationService : IAuthenticationService
         _sessionRepository = sessionRepository;
         _tokenRepository = tokenRepository;
         _deviceIdentityService = deviceIdentityService;
+        _accessControlService = accessControlService;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _emailService = emailService;
@@ -101,6 +105,11 @@ public sealed class AuthenticationService : IAuthenticationService
         if (user.Status == UserStatus.Suspended || user.Status == UserStatus.Disabled)
         {
             throw new AuthenticationException("Account is not active.");
+        }
+
+        if (await _accessControlService.IsBlockedAsync(ipAddress ?? "unknown", deviceId: null, user.Id, cancellationToken).ConfigureAwait(false))
+        {
+            throw new AuthenticationException("Access denied by security policy.");
         }
 
         user.LastLoginAt = DateTimeOffset.UtcNow;
@@ -259,6 +268,16 @@ public sealed class AuthenticationService : IAuthenticationService
         var tokens = await GenerateAndStoreTokensAsync(user, ipAddress, userAgent, cancellationToken).ConfigureAwait(false);
         var deviceEnrollment = deviceRequest ?? CreateFallbackDeviceRequest(userAgent);
         var deviceResult = await _deviceIdentityService.RecognizeOrEnrollAsync(user.Id, deviceEnrollment, ipAddress ?? "unknown", cancellationToken).ConfigureAwait(false);
+
+        if (deviceResult.Device is not null)
+        {
+            var trustResult = await _accessControlService.EvaluateDeviceTrustAsync(user.Id, deviceResult.Device.Id, ipAddress ?? "unknown", cancellationToken).ConfigureAwait(false);
+
+            if (trustResult.IsBlocked)
+            {
+                throw new AuthenticationException("Access denied by security policy.");
+            }
+        }
 
         return new LoginResponse
         {

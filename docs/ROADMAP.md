@@ -58,20 +58,30 @@
 
 **Milestone:** Devices are enrolled during authentication, recognized by fingerprint or device ID, and can be trusted, untrusted, blocked, or removed by the user.
 
-## Phase 5 — IP Intelligence
+## Phase 5 — IP Intelligence ✅
 
-- IP tracking
-- GeoIP abstraction
-- ASN/ISP lookup
-- VPN/proxy/Tor detection abstraction
-- Reputation provider abstraction
+- IP tracking (request counts, first/last seen, user/device associations)
+- GeoIP abstraction (`IGeoIpProvider`) with a null default implementation
+- ASN/ISP lookup fields on the `IpAddress` entity
+- VPN/proxy/Tor detection abstraction (`IVpnProxyDetector`) with a null default implementation
+- Reputation provider abstraction (`IReputationProvider`) with a null default implementation
+- `IpAddress` entity with IP ↔ user/device associations
+- `IpController` (`GET /api/ip/me`, `GET /api/ip/recent`, `GET /api/ip/{id}`)
+- EF Core migration `AddIpIntelligence`
 
-## Phase 6 — Access Control
+**Milestone:** Every proxied request is tracked, enriched with GeoIP, reputation, and VPN metadata via swappable providers, and exposed through a read-only API.
 
-- Unknown device challenge
-- Approval/denial workflow
-- Trusted devices and trusted networks
-- Blocking workflow
+## Phase 6 — Access Control ✅
+
+- Unknown device challenge handled during login/register
+- Approval/denial workflow for pending devices (`AccessDecision`)
+- Trusted networks (`TrustedNetwork`) with CIDR matching
+- Blocking workflow (`BlocklistEntry`) for IPs, networks, devices, and users
+- `AccessControlService` integrating trust evaluation with device status
+- `AccessControlController` for administrators to manage networks, blocklist, and device decisions
+- EF Core migration `AddAccessControl`
+
+**Milestone:** Administrators can define trusted networks and blocklist entries, new devices on trusted networks are auto-approved, and blocked IPs/devices/users are denied access at login.
 
 ## Phase 7 — Application Policies
 
