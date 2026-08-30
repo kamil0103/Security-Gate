@@ -10,6 +10,7 @@ using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Application.RateLimiting;
+using SecurityGateway.Application.ThreatDetection;
 using SecurityGateway.Application.Waf;
 using SecurityGateway.Infrastructure.Gateway;
 using SecurityGateway.Infrastructure.Health;
@@ -27,6 +28,8 @@ using SecurityGateway.Infrastructure.Applications.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Repositories;
 using SecurityGateway.Infrastructure.RateLimiting.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Stores;
+using SecurityGateway.Infrastructure.ThreatDetection.Repositories;
+using SecurityGateway.Infrastructure.ThreatDetection.Services;
 using SecurityGateway.Infrastructure.Waf.Repositories;
 using SecurityGateway.Infrastructure.Waf.Services;
 
@@ -99,6 +102,11 @@ builder.Services.AddScoped<IRateLimitService, RateLimitService>();
 builder.Services.AddSingleton<IAttackClassifier, ModSecurityAttackClassifier>();
 builder.Services.AddScoped<IWafEventRepository, WafEventRepository>();
 builder.Services.AddScoped<IWafEventService, WafEventService>();
+
+// Threat detection services
+builder.Services.AddScoped<ISecurityEventRepository, SecurityEventRepository>();
+builder.Services.AddScoped<IThreatScoreRuleRepository, ThreatScoreRuleRepository>();
+builder.Services.AddScoped<IThreatDetectionService, ThreatDetectionService>();
 
 // IP intelligence providers (replace with real providers in production)
 builder.Services.AddSingleton<IGeoIpProvider, NullGeoIpProvider>();

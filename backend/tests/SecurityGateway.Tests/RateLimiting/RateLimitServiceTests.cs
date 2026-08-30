@@ -9,6 +9,7 @@ using SecurityGateway.Infrastructure.RateLimiting.Services;
 using SecurityGateway.Tests.TestHelpers;
 using Xunit;
 
+
 namespace SecurityGateway.Tests.RateLimiting;
 
 public class RateLimitServiceTests : IDisposable
@@ -30,7 +31,7 @@ public class RateLimitServiceTests : IDisposable
         var ruleRepository = new RateLimitRuleRepository(_context);
         var blocklistRepository = new BlocklistRepository(_context);
 
-        _service = new RateLimitService(_store, ruleRepository, blocklistRepository, _context);
+        _service = new RateLimitService(_store, ruleRepository, blocklistRepository, new FakeThreatDetectionService(), _context);
     }
 
     [Fact]

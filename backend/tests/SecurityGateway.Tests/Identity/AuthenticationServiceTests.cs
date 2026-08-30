@@ -1,13 +1,14 @@
 using Microsoft.EntityFrameworkCore;
-using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.Identity.DTOs;
+using SecurityGateway.Application.ThreatDetection;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Infrastructure.AccessControl.Repositories;
 using SecurityGateway.Infrastructure.AccessControl.Services;
 using SecurityGateway.Infrastructure.Identity;
 using SecurityGateway.Infrastructure.Persistence;
 using SecurityGateway.Infrastructure.Persistence.Repositories;
+using SecurityGateway.Tests.TestHelpers;
 using Xunit;
 
 namespace SecurityGateway.Tests.Identity;
@@ -51,6 +52,7 @@ public class AuthenticationServiceTests : IDisposable
             blocklistRepository,
             accessDecisionRepository,
             deviceRepository,
+            new FakeThreatDetectionService(),
             _context);
 
         _service = new AuthenticationService(
@@ -59,6 +61,7 @@ public class AuthenticationServiceTests : IDisposable
             tokenRepository,
             deviceIdentityService,
             accessControlService,
+            new FakeThreatDetectionService(),
             passwordHasher,
             tokenService,
             _emailService,

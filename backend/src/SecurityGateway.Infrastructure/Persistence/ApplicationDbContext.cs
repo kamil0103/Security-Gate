@@ -4,6 +4,7 @@ using SecurityGateway.Domain.AccessControl;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Domain.IpIntelligence;
 using SecurityGateway.Domain.RateLimiting;
+using SecurityGateway.Domain.ThreatDetection;
 using SecurityGateway.Domain.Waf;
 using ApplicationEntity = SecurityGateway.Domain.Applications.Application;
 using ApplicationPolicyEntity = SecurityGateway.Domain.Applications.ApplicationPolicy;
@@ -31,6 +32,8 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<ApplicationPolicyEntity> ApplicationPolicies => Set<ApplicationPolicyEntity>();
     public DbSet<RateLimitRule> RateLimitRules => Set<RateLimitRule>();
     public DbSet<WafEvent> WafEvents => Set<WafEvent>();
+    public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
+    public DbSet<ThreatScoreRule> ThreatScoreRules => Set<ThreatScoreRule>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
 
@@ -180,6 +183,27 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.Property(e => e.Method).HasMaxLength(16);
             entity.Property(e => e.Uri).HasMaxLength(2000);
             entity.Property(e => e.Host).HasMaxLength(253);
+        });
+
+        modelBuilder.Entity<SecurityEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.Type);
+            entity.HasIndex(e => e.Severity);
+            entity.HasIndex(e => e.SourceIp);
+            entity.HasIndex(e => e.UserId);
+            entity.Property(e => e.SourceIp).HasMaxLength(64);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.RelatedEntityType).HasMaxLength(100);
+            entity.Property(e => e.RelatedEntityId).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<ThreatScoreRule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.EventType);
+            entity.Property(e => e.Name).HasMaxLength(200);
         });
 
         modelBuilder.Entity<PasswordResetToken>(entity =>

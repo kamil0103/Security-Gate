@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.AccessControl.DTOs;
+using SecurityGateway.Application.ThreatDetection;
 using SecurityGateway.Domain.AccessControl;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Infrastructure.AccessControl.Repositories;
@@ -8,6 +9,7 @@ using SecurityGateway.Infrastructure.AccessControl.Services;
 using SecurityGateway.Infrastructure.Identity;
 using SecurityGateway.Infrastructure.Persistence;
 using SecurityGateway.Infrastructure.Persistence.Repositories;
+using SecurityGateway.Tests.TestHelpers;
 using Xunit;
 
 namespace SecurityGateway.Tests.AccessControl;
@@ -36,6 +38,7 @@ public class AccessControlServiceTests : IDisposable
             blocklistRepository,
             accessDecisionRepository,
             deviceRepository,
+            new FakeThreatDetectionService(),
             _context);
     }
 

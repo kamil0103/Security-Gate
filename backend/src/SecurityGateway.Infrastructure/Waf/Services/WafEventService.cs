@@ -1,6 +1,9 @@
 using SecurityGateway.Application.IpIntelligence;
+using SecurityGateway.Application.ThreatDetection;
+using SecurityGateway.Application.ThreatDetection.DTOs;
 using SecurityGateway.Application.Waf;
 using SecurityGateway.Application.Waf.DTOs;
+using SecurityGateway.Domain.ThreatDetection;
 using SecurityGateway.Domain.Waf;
 using SecurityGateway.Application.Identity;
 
@@ -11,17 +14,20 @@ public sealed class WafEventService : IWafEventService
     private readonly IWafEventRepository _wafEventRepository;
     private readonly IAttackClassifier _attackClassifier;
     private readonly IIpAddressRepository _ipAddressRepository;
+    private readonly IThreatDetectionService _threatDetectionService;
     private readonly IUnitOfWork _unitOfWork;
 
     public WafEventService(
         IWafEventRepository wafEventRepository,
         IAttackClassifier attackClassifier,
         IIpAddressRepository ipAddressRepository,
+        IThreatDetectionService threatDetectionService,
         IUnitOfWork unitOfWork)
     {
         _wafEventRepository = wafEventRepository;
         _attackClassifier = attackClassifier;
         _ipAddressRepository = ipAddressRepository;
+        _threatDetectionService = threatDetectionService;
         _unitOfWork = unitOfWork;
     }
 
@@ -58,6 +64,8 @@ public sealed class WafEventService : IWafEventService
         await CorrelateWithIpIntelligenceAsync(wafEvent, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await RecordSecurityEventAsync(wafEvent, cancellationToken).ConfigureAwait(false);
+
         return MapToDto(wafEvent);
     }
 
@@ -87,6 +95,38 @@ public sealed class WafEventService : IWafEventService
             cancellationToken).ConfigureAwait(false);
 
         return events.Select(MapToDto).ToList().AsReadOnly();
+    }
+
+    private async Task RecordSecurityEventAsync(WafEvent wafEvent, CancellationToken cancellationToken)
+    {
+        if (wafEvent.Severity < AttackSeverity.High)
+        {
+            return;
+        }
+
+        try
+        {
+            await _threatDetectionService.RecordEventAsync(new CreateSecurityEventRequest
+            {
+                Type = SecurityEventType.WafEvent,
+                Severity = wafEvent.Severity switch
+                {
+                    AttackSeverity.Critical => SecurityEventSeverity.Critical,
+                    AttackSeverity.High => SecurityEventSeverity.High,
+                    AttackSeverity.Medium => SecurityEventSeverity.Medium,
+                    AttackSeverity.Low => SecurityEventSeverity.Low,
+                    _ => SecurityEventSeverity.Info
+                },
+                SourceIp = wafEvent.SourceIp,
+                Description = $"WAF {wafEvent.Action} {wafEvent.AttackType} attack: {wafEvent.RuleMessage}",
+                RelatedEntityType = "WafEvent",
+                RelatedEntityId = wafEvent.Id.ToString()
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort threat detection.
+        }
     }
 
     private async Task CorrelateWithIpIntelligenceAsync(WafEvent wafEvent, CancellationToken cancellationToken)

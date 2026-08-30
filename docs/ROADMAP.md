@@ -122,12 +122,21 @@
 
 **Milestone:** Security Gateway can consume WAF events from ModSecurity + OWASP CRS, classify attacks, and enrich IP intelligence with attack history.
 
-## Phase 10 — Threat Detection
+## Phase 10 — Threat Detection ✅
 
-- Threat scoring engine
-- Behavioral rules
-- Security events
-- Automatic response triggers
+- `SecurityEvent` and `ThreatScoreRule` domain entities
+- `IThreatDetectionService` for recording events and evaluating threat scores
+- Behavioral rules: count events of a given type within a time window and apply score impact
+- Automatic IP threat score escalation when thresholds are met
+- Security event generation integrated into:
+  - Authentication failures and access-blocked logins
+  - Rate limit exceeded
+  - High-severity WAF events
+  - Blocklist matches
+- `SecurityEventsController` and `ThreatScoreRulesController` for admin review and rule management
+- EF Core migration `AddThreatDetection`
+
+**Milestone:** The gateway maintains a unified security event feed, applies behavioral threat scoring rules, and updates IP reputation automatically.
 
 ## Phase 11 — Automatic Blocking
 

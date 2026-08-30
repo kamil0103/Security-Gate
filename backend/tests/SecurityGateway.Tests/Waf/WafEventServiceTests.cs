@@ -6,6 +6,7 @@ using SecurityGateway.Infrastructure.IpIntelligence.Repositories;
 using SecurityGateway.Infrastructure.Persistence;
 using SecurityGateway.Infrastructure.Waf.Repositories;
 using SecurityGateway.Infrastructure.Waf.Services;
+using SecurityGateway.Tests.TestHelpers;
 using Xunit;
 
 namespace SecurityGateway.Tests.Waf;
@@ -28,7 +29,7 @@ public class WafEventServiceTests : IDisposable
         var ipAddressRepository = new IpAddressRepository(_context);
         var classifier = new ModSecurityAttackClassifier();
 
-        _service = new WafEventService(wafEventRepository, classifier, ipAddressRepository, _context);
+        _service = new WafEventService(wafEventRepository, classifier, ipAddressRepository, new FakeThreatDetectionService(), _context);
     }
 
     [Fact]

@@ -3,8 +3,11 @@ using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.AccessControl.DTOs;
 using SecurityGateway.Application.AccessControl.Models;
 using SecurityGateway.Application.Identity;
+using SecurityGateway.Application.ThreatDetection;
+using SecurityGateway.Application.ThreatDetection.DTOs;
 using SecurityGateway.Domain.AccessControl;
 using SecurityGateway.Domain.Identity;
+using SecurityGateway.Domain.ThreatDetection;
 
 namespace SecurityGateway.Infrastructure.AccessControl.Services;
 
@@ -14,6 +17,7 @@ public sealed class AccessControlService : IAccessControlService
     private readonly IBlocklistRepository _blocklistRepository;
     private readonly IAccessDecisionRepository _accessDecisionRepository;
     private readonly IDeviceRepository _deviceRepository;
+    private readonly IThreatDetectionService _threatDetectionService;
     private readonly IUnitOfWork _unitOfWork;
 
     public AccessControlService(
@@ -21,12 +25,14 @@ public sealed class AccessControlService : IAccessControlService
         IBlocklistRepository blocklistRepository,
         IAccessDecisionRepository accessDecisionRepository,
         IDeviceRepository deviceRepository,
+        IThreatDetectionService threatDetectionService,
         IUnitOfWork unitOfWork)
     {
         _trustedNetworkRepository = trustedNetworkRepository;
         _blocklistRepository = blocklistRepository;
         _accessDecisionRepository = accessDecisionRepository;
         _deviceRepository = deviceRepository;
+        _threatDetectionService = threatDetectionService;
         _unitOfWork = unitOfWork;
     }
 
@@ -49,6 +55,7 @@ public sealed class AccessControlService : IAccessControlService
         {
             if (IsMatch(entry, ipAddress, deviceId, userId))
             {
+                await RecordBlockedEventAsync(ipAddress, deviceId, userId, entry.Type, entry.Value, cancellationToken).ConfigureAwait(false);
                 return true;
             }
         }
@@ -328,6 +335,28 @@ public sealed class AccessControlService : IAccessControlService
     {
         var decisions = await _accessDecisionRepository.GetByTargetAsync(type, targetId, cancellationToken).ConfigureAwait(false);
         return decisions.Select(MapAccessDecision).ToList().AsReadOnly();
+    }
+
+    private async Task RecordBlockedEventAsync(string ipAddress, Guid? deviceId, Guid? userId, BlocklistEntryType type, string value, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _threatDetectionService.RecordEventAsync(new CreateSecurityEventRequest
+            {
+                Type = SecurityEventType.AccessBlocked,
+                Severity = SecurityEventSeverity.High,
+                SourceIp = ipAddress,
+                UserId = userId,
+                DeviceId = deviceId,
+                Description = $"Access blocked by {type} blocklist entry: {value}",
+                RelatedEntityType = "BlocklistEntry",
+                RelatedEntityId = value
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort threat detection.
+        }
     }
 
     private static bool IsMatch(BlocklistEntry entry, string ipAddress, Guid? deviceId, Guid? userId)

@@ -3,8 +3,11 @@ using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.RateLimiting;
 using SecurityGateway.Application.RateLimiting.DTOs;
 using SecurityGateway.Application.RateLimiting.Models;
+using SecurityGateway.Application.ThreatDetection;
+using SecurityGateway.Application.ThreatDetection.DTOs;
 using SecurityGateway.Domain.AccessControl;
 using SecurityGateway.Domain.RateLimiting;
+using SecurityGateway.Domain.ThreatDetection;
 
 namespace SecurityGateway.Infrastructure.RateLimiting.Services;
 
@@ -13,17 +16,20 @@ public sealed class RateLimitService : IRateLimitService
     private readonly IRateLimitStore _rateLimitStore;
     private readonly IRateLimitRuleRepository _ruleRepository;
     private readonly IBlocklistRepository _blocklistRepository;
+    private readonly IThreatDetectionService _threatDetectionService;
     private readonly IUnitOfWork _unitOfWork;
 
     public RateLimitService(
         IRateLimitStore rateLimitStore,
         IRateLimitRuleRepository ruleRepository,
         IBlocklistRepository blocklistRepository,
+        IThreatDetectionService threatDetectionService,
         IUnitOfWork unitOfWork)
     {
         _rateLimitStore = rateLimitStore;
         _ruleRepository = ruleRepository;
         _blocklistRepository = blocklistRepository;
+        _threatDetectionService = threatDetectionService;
         _unitOfWork = unitOfWork;
     }
 
@@ -85,6 +91,8 @@ public sealed class RateLimitService : IRateLimitService
             await EscalateAsync(context, effectiveWindow, cancellationToken).ConfigureAwait(false);
             escalated = true;
         }
+
+        await RecordRateLimitEventAsync(context, cancellationToken).ConfigureAwait(false);
 
         return new RateLimitResult
         {
@@ -182,6 +190,25 @@ public sealed class RateLimitService : IRateLimitService
         };
 
         return $"ratelimit:{(int)rule.ScopeType}:{scopeIdentifier}";
+    }
+
+    private async Task RecordRateLimitEventAsync(RateLimitRequestContext context, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await _threatDetectionService.RecordEventAsync(new CreateSecurityEventRequest
+            {
+                Type = SecurityEventType.RateLimitExceeded,
+                Severity = SecurityEventSeverity.Medium,
+                SourceIp = context.IpAddress,
+                UserId = context.UserId,
+                Description = $"Rate limit exceeded for {context.Domain}{context.Endpoint}"
+            }, cancellationToken).ConfigureAwait(false);
+        }
+        catch
+        {
+            // Best-effort threat detection.
+        }
     }
 
     private async Task EscalateAsync(RateLimitRequestContext context, TimeSpan duration, CancellationToken cancellationToken)
