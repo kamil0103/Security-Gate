@@ -74,6 +74,29 @@ Nginx Proxy Manager placeholder - Security Gateway is not yet routing here.
 
 This confirms the gateway is receiving requests and forwarding them upstream.
 
+### Authentication
+
+A default admin user is created on first startup:
+
+- Username: `admin`
+- Email: `admin@toncom159.com`
+- Password: `ChangeMeInProduction123!` (change this in `.env`)
+
+Log in:
+
+```bash
+curl -X POST http://localhost:5100/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"usernameOrEmail":"admin","password":"ChangeMeInProduction123!"}'
+```
+
+Access your profile:
+
+```bash
+curl http://localhost:5100/api/auth/me \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
 ### Frontend
 
 Open [http://localhost:3100](http://localhost:3100) in your browser. You should see the Security Gateway status page.
