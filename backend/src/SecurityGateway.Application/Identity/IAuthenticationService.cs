@@ -4,8 +4,8 @@ namespace SecurityGateway.Application.Identity;
 
 public interface IAuthenticationService
 {
-    Task<LoginResponse> RegisterAsync(RegisterRequest request, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default);
-    Task<LoginResponse> LoginAsync(LoginRequest request, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default);
+    Task<LoginResponse> RegisterAsync(RegisterRequest request, DeviceEnrollmentRequest? deviceRequest = null, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default);
+    Task<LoginResponse> LoginAsync(LoginRequest request, DeviceEnrollmentRequest? deviceRequest = null, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default);
     Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default);
     Task<TokenPair> RefreshTokenAsync(RefreshTokenRequest request, CancellationToken cancellationToken = default);
     Task ChangePasswordAsync(Guid userId, ChangePasswordRequest request, CancellationToken cancellationToken = default);

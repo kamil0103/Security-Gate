@@ -52,9 +52,11 @@ builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<ApplicationD
 // Identity repositories
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISessionRepository, SessionRepository>();
+builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 
 // Identity services
+builder.Services.AddScoped<IDeviceIdentityService, DeviceIdentityService>();
 builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()

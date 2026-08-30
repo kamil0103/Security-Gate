@@ -10,6 +10,7 @@ public sealed class AuthenticationService : IAuthenticationService
     private readonly IUserRepository _userRepository;
     private readonly ISessionRepository _sessionRepository;
     private readonly ITokenRepository _tokenRepository;
+    private readonly IDeviceIdentityService _deviceIdentityService;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
@@ -20,6 +21,7 @@ public sealed class AuthenticationService : IAuthenticationService
         IUserRepository userRepository,
         ISessionRepository sessionRepository,
         ITokenRepository tokenRepository,
+        IDeviceIdentityService deviceIdentityService,
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
         IEmailService emailService,
@@ -29,6 +31,7 @@ public sealed class AuthenticationService : IAuthenticationService
         _userRepository = userRepository;
         _sessionRepository = sessionRepository;
         _tokenRepository = tokenRepository;
+        _deviceIdentityService = deviceIdentityService;
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _emailService = emailService;
@@ -36,7 +39,7 @@ public sealed class AuthenticationService : IAuthenticationService
         _jwtOptions = jwtOptions;
     }
 
-    public async Task<LoginResponse> RegisterAsync(RegisterRequest request, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default)
+    public async Task<LoginResponse> RegisterAsync(RegisterRequest request, DeviceEnrollmentRequest? deviceRequest = null, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default)
     {
         ValidatePasswordStrength(request.Password);
 
@@ -82,10 +85,10 @@ public sealed class AuthenticationService : IAuthenticationService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return await CreateLoginResponseAsync(user, ipAddress, userAgent, cancellationToken).ConfigureAwait(false);
+        return await CreateLoginResponseAsync(user, deviceRequest, ipAddress, userAgent, cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task<LoginResponse> LoginAsync(LoginRequest request, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default)
+    public async Task<LoginResponse> LoginAsync(LoginRequest request, DeviceEnrollmentRequest? deviceRequest = null, string? ipAddress = null, string? userAgent = null, CancellationToken cancellationToken = default)
     {
         var user = await _userRepository.GetByUsernameOrEmailAsync(request.UsernameOrEmail, cancellationToken).ConfigureAwait(false)
             ?? throw new AuthenticationException("Invalid credentials.");
@@ -102,8 +105,9 @@ public sealed class AuthenticationService : IAuthenticationService
 
         user.LastLoginAt = DateTimeOffset.UtcNow;
         await _userRepository.UpdateAsync(user, cancellationToken).ConfigureAwait(false);
+        await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return await CreateLoginResponseAsync(user, ipAddress, userAgent, cancellationToken).ConfigureAwait(false);
+        return await CreateLoginResponseAsync(user, deviceRequest, ipAddress, userAgent, cancellationToken).ConfigureAwait(false);
     }
 
     public async Task LogoutAsync(string refreshToken, CancellationToken cancellationToken = default)
@@ -250,14 +254,17 @@ public sealed class AuthenticationService : IAuthenticationService
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private async Task<LoginResponse> CreateLoginResponseAsync(User user, string? ipAddress, string? userAgent, CancellationToken cancellationToken)
+    private async Task<LoginResponse> CreateLoginResponseAsync(User user, DeviceEnrollmentRequest? deviceRequest, string? ipAddress, string? userAgent, CancellationToken cancellationToken)
     {
         var tokens = await GenerateAndStoreTokensAsync(user, ipAddress, userAgent, cancellationToken).ConfigureAwait(false);
+        var deviceEnrollment = deviceRequest ?? CreateFallbackDeviceRequest(userAgent);
+        var deviceResult = await _deviceIdentityService.RecognizeOrEnrollAsync(user.Id, deviceEnrollment, ipAddress ?? "unknown", cancellationToken).ConfigureAwait(false);
 
         return new LoginResponse
         {
             User = MapToDto(user),
-            Tokens = tokens
+            Tokens = tokens,
+            Device = deviceResult
         };
     }
 
@@ -285,6 +292,21 @@ public sealed class AuthenticationService : IAuthenticationService
             RefreshToken = refreshToken,
             AccessTokenExpiresAt = DateTimeOffset.UtcNow.AddMinutes(_jwtOptions.AccessTokenExpirationMinutes),
             RefreshTokenExpiresAt = session.ExpiresAt
+        };
+    }
+
+    private static DeviceEnrollmentRequest CreateFallbackDeviceRequest(string? userAgent)
+    {
+        var fallbackFingerprint = string.IsNullOrWhiteSpace(userAgent)
+            ? $"fallback-{Guid.NewGuid()}"
+            : Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(userAgent)));
+
+        return new DeviceEnrollmentRequest
+        {
+            DeviceId = Guid.NewGuid().ToString(),
+            Name = "Unknown Device",
+            Fingerprint = fallbackFingerprint,
+            UserAgent = userAgent
         };
     }
 
