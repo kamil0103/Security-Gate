@@ -1,3 +1,5 @@
+using SecurityGateway.Domain.IpIntelligence;
+
 namespace SecurityGateway.Domain.Identity;
 
 public sealed class Device
@@ -21,4 +23,5 @@ public sealed class Device
     public DateTimeOffset LastSeenAt { get; set; } = DateTimeOffset.UtcNow;
 
     public ICollection<DeviceIpAddress> IpHistory { get; init; } = new List<DeviceIpAddress>();
+    public ICollection<IpDeviceAssociation> IpAssociations { get; init; } = new List<IpDeviceAssociation>();
 }
