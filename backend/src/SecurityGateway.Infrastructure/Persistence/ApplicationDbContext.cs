@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SecurityGateway.Application.Identity;
+using SecurityGateway.Domain.AccessControl;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Domain.IpIntelligence;
 
@@ -19,6 +20,9 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<IpAddress> IpAddresses => Set<IpAddress>();
     public DbSet<IpUserAssociation> IpUserAssociations => Set<IpUserAssociation>();
     public DbSet<IpDeviceAssociation> IpDeviceAssociations => Set<IpDeviceAssociation>();
+    public DbSet<TrustedNetwork> TrustedNetworks => Set<TrustedNetwork>();
+    public DbSet<BlocklistEntry> BlocklistEntries => Set<BlocklistEntry>();
+    public DbSet<AccessDecision> AccessDecisions => Set<AccessDecision>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
 
@@ -101,6 +105,30 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.HasIndex(e => new { e.IpAddressId, e.DeviceId }).IsUnique();
             entity.HasOne(e => e.IpAddress).WithMany(ip => ip.DeviceAssociations).HasForeignKey(e => e.IpAddressId);
             entity.HasOne(e => e.Device).WithMany(d => d.IpAssociations).HasForeignKey(e => e.DeviceId);
+        });
+
+        modelBuilder.Entity<TrustedNetwork>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Cidr).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Cidr).HasMaxLength(64);
+            entity.Property(e => e.Description).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<BlocklistEntry>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.Type, e.Value }).IsUnique();
+            entity.Property(e => e.Value).HasMaxLength(128);
+            entity.Property(e => e.Reason).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<AccessDecision>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.Type, e.TargetId });
+            entity.Property(e => e.Reason).HasMaxLength(500);
         });
 
         modelBuilder.Entity<PasswordResetToken>(entity =>

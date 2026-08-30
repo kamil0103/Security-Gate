@@ -71,12 +71,17 @@
 
 **Milestone:** Every proxied request is tracked, enriched with GeoIP, reputation, and VPN metadata via swappable providers, and exposed through a read-only API.
 
-## Phase 6 — Access Control
+## Phase 6 — Access Control ✅
 
-- Unknown device challenge
-- Approval/denial workflow
-- Trusted devices and trusted networks
-- Blocking workflow
+- Unknown device challenge handled during login/register
+- Approval/denial workflow for pending devices (`AccessDecision`)
+- Trusted networks (`TrustedNetwork`) with CIDR matching
+- Blocking workflow (`BlocklistEntry`) for IPs, networks, devices, and users
+- `AccessControlService` integrating trust evaluation with device status
+- `AccessControlController` for administrators to manage networks, blocklist, and device decisions
+- EF Core migration `AddAccessControl`
+
+**Milestone:** Administrators can define trusted networks and blocklist entries, new devices on trusted networks are auto-approved, and blocked IPs/devices/users are denied access at login.
 
 ## Phase 7 — Application Policies
 
