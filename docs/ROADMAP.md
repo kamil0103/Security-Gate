@@ -3,36 +3,38 @@
 ## Phase 0 — Project Setup
 
 - [x] Repository initialized
-- [ ] Documentation: README, spec, roadmap, start here, contributing, security
-- [ ] Architecture Decision Records
-- [ ] GitHub Actions CI scaffolding
-- [ ] Branching and commit conventions documented
+- [x] Documentation: README, spec, roadmap, start here, contributing, security
+- [x] Architecture Decision Records
+- [x] GitHub Actions CI scaffolding
+- [x] Branching and commit conventions documented
 
 **Milestone:** Repository is ready for development.
 
 ## Phase 1 — Development Infrastructure
 
-- [ ] React 19 + TypeScript + Vite frontend
-- [ ] ASP.NET Core 9 backend with Clean Architecture
-- [ ] PostgreSQL 16 in Docker Compose
-- [ ] Redis 7 in Docker Compose
-- [ ] Backend health endpoint verifying Postgres and Redis connectivity
-- [ ] Frontend health page communicating with backend
-- [ ] Docker Compose development environment
-- [ ] Backend integration tests
-- [ ] Frontend smoke tests
-- [ ] CI pipeline passing
+- [x] React 19 + TypeScript + Vite frontend
+- [x] ASP.NET Core 9 backend with Clean Architecture
+- [x] PostgreSQL 16 in Docker Compose
+- [x] Redis 7 in Docker Compose
+- [x] Backend health endpoint verifying Postgres and Redis connectivity
+- [x] Frontend health page communicating with backend
+- [x] Docker Compose development environment
+- [x] Backend integration tests
+- [x] Frontend smoke tests
+- [x] CI pipeline passing
 
 **Milestone:** Every developer can clone the repository and run the entire development environment.
 
 ## Phase 2 — Gateway Foundation
 
-- Gateway networking and request handling
-- Trusted proxy chain configuration
-- Client IP extraction and validation
-- NPM communication
-- Logging
-- Fail-closed networking design
+- [x] Gateway networking and request handling
+- [x] Trusted proxy chain configuration
+- [x] Client IP extraction and validation
+- [x] NPM communication
+- [x] Logging
+- [x] Fail-closed networking design
+
+**Milestone:** The gateway can receive requests, resolve the real client IP from trusted proxies, log requests, and forward them to Nginx Proxy Manager.
 
 ## Phase 3 — Authentication
 
