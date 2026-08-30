@@ -60,7 +60,8 @@ services:
       Smtp__EnableSsl: ${Smtp__EnableSsl:-true}
       Smtp__FromAddress: ${Smtp__FromAddress:-noreply@toncom159.com}
       Smtp__FromName: ${Smtp__FromName:-Security Gateway}
-      TrustedProxies: ${TrustedProxies:-127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16}
+      Gateway__UpstreamNpmUrl: ${GATEWAY_UPSTREAM_NPM_URL:-http://npm-placeholder:80}
+      Gateway__TrustedProxies: ${TrustedProxies:-127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8}
     ports:
       - "${BACKEND_PORT:-5100}:8080"
     depends_on:
@@ -68,6 +69,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      npm-placeholder:
+        condition: service_started
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/health"]
       interval: 10s

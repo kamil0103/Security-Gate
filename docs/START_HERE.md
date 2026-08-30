@@ -58,6 +58,22 @@ Expected response:
 }
 ```
 
+### Gateway Proxying
+
+After Docker Compose is running, the gateway proxies non-admin traffic to the NPM placeholder:
+
+```bash
+curl http://localhost:5100/some-app -H "X-Forwarded-For: 198.51.100.5"
+```
+
+Expected response:
+
+```
+Nginx Proxy Manager placeholder - Security Gateway is not yet routing here.
+```
+
+This confirms the gateway is receiving requests and forwarding them upstream.
+
 ### Frontend
 
 Open [http://localhost:3100](http://localhost:3100) in your browser. You should see the Security Gateway status page.
