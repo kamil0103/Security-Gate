@@ -1,8 +1,16 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using SecurityGateway.Api.Identity;
 using SecurityGateway.Api.Middleware;
 using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.Health;
+using SecurityGateway.Application.Identity;
 using SecurityGateway.Infrastructure.Gateway;
 using SecurityGateway.Infrastructure.Health;
+using SecurityGateway.Infrastructure.Identity;
+using SecurityGateway.Infrastructure.Persistence;
+using SecurityGateway.Infrastructure.Persistence.Repositories;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,10 +35,54 @@ builder.Services.AddHttpClient<IProxyService, HttpClientProxyService>((servicePr
 })
 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
 {
-    // Allow proxying of streaming responses without buffering.
     UseProxy = false,
     PooledConnectionLifetime = TimeSpan.FromMinutes(5)
 });
+
+// Database
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseNpgsql(postgresConnectionString, npgsql =>
+            npgsql.MigrationsAssembly("SecurityGateway.Infrastructure")));
+}
+
+builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<ApplicationDbContext>());
+
+// Identity repositories
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<ISessionRepository, SessionRepository>();
+builder.Services.AddScoped<ITokenRepository, TokenRepository>();
+
+// Identity services
+builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+
+var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
+    ?? throw new InvalidOperationException("JWT options are not configured.");
+
+builder.Services.AddSingleton(jwtOptions);
+builder.Services.AddSingleton<ITokenService, JwtTokenService>();
+
+var smtpOptions = builder.Configuration.GetSection(SmtpOptions.SectionName).Get<SmtpOptions>()
+    ?? new SmtpOptions();
+
+builder.Services.AddSingleton(smtpOptions);
+builder.Services.AddSingleton<IEmailService, SmtpEmailService>();
+
+var defaultAdminOptions = builder.Configuration.GetSection(DefaultAdminOptions.SectionName).Get<DefaultAdminOptions>()
+    ?? new DefaultAdminOptions();
+
+builder.Services.AddSingleton(defaultAdminOptions);
+
+builder.Services.AddScoped<IAuthenticationService, AuthenticationService>();
+
+// JWT authentication
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer();
+
+builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, ConfigureJwtBearerOptions>();
+
+builder.Services.AddAuthorization();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -62,9 +114,30 @@ app.UseCors("DevelopmentCors");
 
 app.UseMiddleware<GatewayMiddleware>();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+// Seed default admin user
+if (!app.Environment.IsEnvironment("Testing"))
+{
+    using var scope = app.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var passwordHasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher>();
+        var adminOptions = scope.ServiceProvider.GetRequiredService<DefaultAdminOptions>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        var seeder = new DataSeeder(context, passwordHasher, adminOptions);
+
+        try
+        {
+            await seeder.SeedAsync();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to seed the database. The application will continue starting.");
+        }
+}
 
 app.Run();
 

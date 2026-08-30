@@ -38,12 +38,14 @@
 
 ## Phase 3 — Authentication
 
-- Local accounts
-- Login/logout
-- Sessions (expiration, revocation)
-- Password change and reset
-- Email verification
-- SMTP configuration
+- [x] Local accounts
+- [x] Login/logout
+- [x] Sessions (expiration, revocation)
+- [x] Password change and reset
+- [x] Email verification
+- [x] SMTP configuration
+
+**Milestone:** Users can register, log in, manage sessions, change/reset passwords, and verify email addresses.
 
 ## Phase 4 — Device Identity
 
