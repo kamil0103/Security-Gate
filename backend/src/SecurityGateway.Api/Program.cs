@@ -5,12 +5,22 @@ using SecurityGateway.Api.Identity;
 using SecurityGateway.Api.Middleware;
 using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.Health;
+using SecurityGateway.Application.AccessControl;
+using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Identity;
+using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Infrastructure.Gateway;
 using SecurityGateway.Infrastructure.Health;
 using SecurityGateway.Infrastructure.Identity;
+using SecurityGateway.Infrastructure.IpIntelligence;
+using SecurityGateway.Infrastructure.IpIntelligence.Providers;
+using SecurityGateway.Infrastructure.IpIntelligence.Repositories;
 using SecurityGateway.Infrastructure.Persistence;
 using SecurityGateway.Infrastructure.Persistence.Repositories;
+using SecurityGateway.Infrastructure.AccessControl.Repositories;
+using SecurityGateway.Infrastructure.AccessControl.Services;
+using SecurityGateway.Infrastructure.Applications.Repositories;
+using SecurityGateway.Infrastructure.Applications.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,10 +64,29 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISessionRepository, SessionRepository>();
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
+builder.Services.AddScoped<IIpAddressRepository, IpAddressRepository>();
+builder.Services.AddScoped<ITrustedNetworkRepository, TrustedNetworkRepository>();
+builder.Services.AddScoped<IBlocklistRepository, BlocklistRepository>();
+builder.Services.AddScoped<IAccessDecisionRepository, AccessDecisionRepository>();
 
 // Identity services
 builder.Services.AddScoped<IDeviceIdentityService, DeviceIdentityService>();
 builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+
+// Access control services
+builder.Services.AddScoped<IAccessControlService, AccessControlService>();
+
+// Application policy services
+builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
+builder.Services.AddScoped<IApplicationPolicyRepository, ApplicationPolicyRepository>();
+builder.Services.AddScoped<IApplicationPolicyService, ApplicationPolicyService>();
+
+// IP intelligence providers (replace with real providers in production)
+builder.Services.AddSingleton<IGeoIpProvider, NullGeoIpProvider>();
+builder.Services.AddSingleton<IReputationProvider, NullReputationProvider>();
+builder.Services.AddSingleton<IVpnProxyDetector, NullVpnProxyDetector>();
+
+builder.Services.AddScoped<IIpIntelligenceService, IpIntelligenceService>();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("JWT options are not configured.");

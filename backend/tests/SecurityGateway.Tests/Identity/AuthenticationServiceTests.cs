@@ -1,7 +1,10 @@
 using Microsoft.EntityFrameworkCore;
+using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.Identity.DTOs;
 using SecurityGateway.Domain.Identity;
+using SecurityGateway.Infrastructure.AccessControl.Repositories;
+using SecurityGateway.Infrastructure.AccessControl.Services;
 using SecurityGateway.Infrastructure.Identity;
 using SecurityGateway.Infrastructure.Persistence;
 using SecurityGateway.Infrastructure.Persistence.Repositories;
@@ -40,12 +43,22 @@ public class AuthenticationServiceTests : IDisposable
         var tokenService = new JwtTokenService(jwtOptions);
         _emailService = new FakeEmailService();
         var deviceIdentityService = new DeviceIdentityService(deviceRepository, _context);
+        var trustedNetworkRepository = new TrustedNetworkRepository(_context);
+        var blocklistRepository = new BlocklistRepository(_context);
+        var accessDecisionRepository = new AccessDecisionRepository(_context);
+        var accessControlService = new AccessControlService(
+            trustedNetworkRepository,
+            blocklistRepository,
+            accessDecisionRepository,
+            deviceRepository,
+            _context);
 
         _service = new AuthenticationService(
             userRepository,
             sessionRepository,
             tokenRepository,
             deviceIdentityService,
+            accessControlService,
             passwordHasher,
             tokenService,
             _emailService,
