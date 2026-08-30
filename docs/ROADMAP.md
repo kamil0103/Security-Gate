@@ -49,12 +49,14 @@
 
 ## Phase 4 — Device Identity
 
-- Device enrollment
-- Device identity signals
-- Device credentials
-- Fingerprinting tolerance
-- Device/user relationships
-- Device management API
+- [x] Device enrollment
+- [x] Device identity signals
+- [x] Device credentials
+- [x] Fingerprinting tolerance
+- [x] Device/user relationships
+- [x] Device management API
+
+**Milestone:** Devices are enrolled during authentication, recognized by fingerprint or device ID, and can be trusted, untrusted, blocked, or removed by the user.
 
 ## Phase 5 — IP Intelligence
 

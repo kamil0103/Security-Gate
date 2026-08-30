@@ -22,19 +22,21 @@ public class AuthController : ControllerBase
 
     [HttpPost("register")]
     [AllowAnonymous]
-    public async Task<IActionResult> Register(RegisterRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Register(RegisterWithDeviceRequest request, CancellationToken cancellationToken)
     {
         var (ip, userAgent) = GetRequestMetadata();
-        var result = await _authenticationService.RegisterAsync(request, ip, userAgent, cancellationToken);
+        var deviceRequest = EnrichDeviceRequest(request.Device, userAgent);
+        var result = await _authenticationService.RegisterAsync(request.User, deviceRequest, ip, userAgent, cancellationToken);
         return Ok(result);
     }
 
     [HttpPost("login")]
     [AllowAnonymous]
-    public async Task<IActionResult> Login(LoginRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Login(LoginWithDeviceRequest request, CancellationToken cancellationToken)
     {
         var (ip, userAgent) = GetRequestMetadata();
-        var result = await _authenticationService.LoginAsync(request, ip, userAgent, cancellationToken);
+        var deviceRequest = EnrichDeviceRequest(request.Device, userAgent);
+        var result = await _authenticationService.LoginAsync(request.User, deviceRequest, ip, userAgent, cancellationToken);
         return Ok(result);
     }
 
@@ -115,6 +117,31 @@ public class AuthController : ControllerBase
         var clientIpResult = _clientIpResolver.Resolve(BuildClientIpContext());
         var userAgent = Request.Headers.UserAgent.ToString();
         return (clientIpResult.ClientIp, userAgent);
+    }
+
+    private DeviceEnrollmentRequest EnrichDeviceRequest(DeviceEnrollmentRequest? request, string userAgent)
+    {
+        if (request is null)
+        {
+            return new DeviceEnrollmentRequest
+            {
+                DeviceId = Guid.NewGuid().ToString(),
+                Name = "Unknown Device",
+                Fingerprint = HashUserAgent(userAgent),
+                UserAgent = userAgent
+            };
+        }
+
+        return request with
+        {
+            UserAgent = request.UserAgent ?? userAgent
+        };
+    }
+
+    private static string HashUserAgent(string userAgent)
+    {
+        var bytes = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(userAgent));
+        return Convert.ToHexString(bytes);
     }
 
     private ClientIpContext BuildClientIpContext()
