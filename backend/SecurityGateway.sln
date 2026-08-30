@@ -1,0 +1,42 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecurityGateway.Domain", "src\SecurityGateway.Domain\SecurityGateway.Domain.csproj", "{A1B2C3D4-1234-5678-90AB-CDEF12345678}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecurityGateway.Application", "src\SecurityGateway.Application\SecurityGateway.Application.csproj", "{B2C3D4E5-2345-6789-01BC-DEFA23456789}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecurityGateway.Infrastructure", "src\SecurityGateway.Infrastructure\SecurityGateway.Infrastructure.csproj", "{C3D4E5F6-3456-7890-12CD-EFAB34567890}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecurityGateway.Api", "src\SecurityGateway.Api\SecurityGateway.Api.csproj", "{D4E5F6A7-4567-8901-23DE-FABC45678901}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SecurityGateway.Tests", "tests\SecurityGateway.Tests\SecurityGateway.Tests.csproj", "{E5F6A7B8-5678-9012-34EF-ABCD56789012}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1B2C3D4-1234-5678-90AB-CDEF12345678}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-1234-5678-90AB-CDEF12345678}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-1234-5678-90AB-CDEF12345678}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-1234-5678-90AB-CDEF12345678}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2C3D4E5-2345-6789-01BC-DEFA23456789}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C3D4E5-2345-6789-01BC-DEFA23456789}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2C3D4E5-2345-6789-01BC-DEFA23456789}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2C3D4E5-2345-6789-01BC-DEFA23456789}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3D4E5F6-3456-7890-12CD-EFAB34567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3D4E5F6-3456-7890-12CD-EFAB34567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3D4E5F6-3456-7890-12CD-EFAB34567890}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3D4E5F6-3456-7890-12CD-EFAB34567890}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4E5F6A7-4567-8901-23DE-FABC45678901}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4E5F6A7-4567-8901-23DE-FABC45678901}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4E5F6A7-4567-8901-23DE-FABC45678901}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4E5F6A7-4567-8901-23DE-FABC45678901}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E5F6A7B8-5678-9012-34EF-ABCD56789012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5F6A7B8-5678-9012-34EF-ABCD56789012}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5F6A7B8-5678-9012-34EF-ABCD56789012}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5F6A7B8-5678-9012-34EF-ABCD56789012}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

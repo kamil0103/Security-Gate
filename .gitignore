@@ -1,0 +1,50 @@
+# Security Gateway — .gitignore
+
+# Secrets
+.env
+.env.*.local
+*.secret
+secrets/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+.vs/
+.vscode/
+*.dll
+*.exe
+*.pdb
+*.cache
+*.log
+.dotnet/
+
+# Frontend
+node_modules/
+dist/
+build/
+*.local
+.vite/
+coverage/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# Test results
+TestResults/
+coverage/
+
+# Docker volumes
+volumes/
+*.volume
+
+# OS files
+Thumbs.db
