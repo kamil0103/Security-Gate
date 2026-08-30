@@ -83,11 +83,19 @@
 
 **Milestone:** Administrators can define trusted networks and blocklist entries, new devices on trusted networks are auto-approved, and blocked IPs/devices/users are denied access at login.
 
-## Phase 7 — Application Policies
+## Phase 7 — Application Policies ✅
 
-- Domain configuration
-- Per-application security policies
-- Per-application rules
+- `Application` entity with domain, name, upstream URL, and enabled status
+- `ApplicationPolicy` entity with per-application settings:
+  - Authentication requirement
+  - Anonymous access from trusted networks
+  - Allowed/blocked countries and IP addresses
+- `IApplicationPolicyService` for CRUD and policy evaluation
+- Gateway middleware resolves applications by `Host` header, evaluates policy, and routes to per-application upstream URLs
+- `ApplicationsController` and `ApplicationPoliciesController` for admin configuration
+- EF Core migration `AddApplications`
+
+**Milestone:** Each proxied domain can be configured independently, and the gateway enforces authentication and IP-based access rules before forwarding traffic.
 
 ## Phase 8 — Rate Limiting
 

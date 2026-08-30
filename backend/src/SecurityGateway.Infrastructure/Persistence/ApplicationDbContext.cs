@@ -3,6 +3,8 @@ using SecurityGateway.Application.Identity;
 using SecurityGateway.Domain.AccessControl;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Domain.IpIntelligence;
+using ApplicationEntity = SecurityGateway.Domain.Applications.Application;
+using ApplicationPolicyEntity = SecurityGateway.Domain.Applications.ApplicationPolicy;
 
 namespace SecurityGateway.Infrastructure.Persistence;
 
@@ -23,6 +25,8 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<TrustedNetwork> TrustedNetworks => Set<TrustedNetwork>();
     public DbSet<BlocklistEntry> BlocklistEntries => Set<BlocklistEntry>();
     public DbSet<AccessDecision> AccessDecisions => Set<AccessDecision>();
+    public DbSet<ApplicationEntity> Applications => Set<ApplicationEntity>();
+    public DbSet<ApplicationPolicyEntity> ApplicationPolicies => Set<ApplicationPolicyEntity>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
 
@@ -129,6 +133,26 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.Type, e.TargetId });
             entity.Property(e => e.Reason).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<ApplicationEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Domain).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Domain).HasMaxLength(253);
+            entity.Property(e => e.UpstreamUrl).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<ApplicationPolicyEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ApplicationId).IsUnique();
+            entity.HasOne(e => e.Application).WithOne(a => a.Policy).HasForeignKey<ApplicationPolicyEntity>(e => e.ApplicationId);
+            entity.Property(e => e.AllowedCountries).HasMaxLength(1000);
+            entity.Property(e => e.BlockedCountries).HasMaxLength(1000);
+            entity.Property(e => e.AllowedIpAddresses).HasMaxLength(2000);
+            entity.Property(e => e.BlockedIpAddresses).HasMaxLength(2000);
         });
 
         modelBuilder.Entity<PasswordResetToken>(entity =>

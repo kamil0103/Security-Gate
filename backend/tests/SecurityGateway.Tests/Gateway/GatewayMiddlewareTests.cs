@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using SecurityGateway.Api.Middleware;
+using SecurityGateway.Application.AccessControl;
+using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Gateway;
 using Xunit;
 
@@ -21,6 +23,8 @@ public class GatewayMiddlewareTests
             proxyService,
             resolver,
             null,
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -45,6 +49,8 @@ public class GatewayMiddlewareTests
             proxyService,
             resolver,
             null,
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -67,11 +73,13 @@ public class GatewayMiddlewareTests
     {
         public bool WasCalled { get; private set; }
         public ProxyRequestContext? LastRequest { get; private set; }
+        public string? LastUpstreamUrl { get; private set; }
 
-        public Task<ProxyResponse> ForwardAsync(ProxyRequestContext request, CancellationToken cancellationToken = default)
+        public Task<ProxyResponse> ForwardAsync(ProxyRequestContext request, string? upstreamUrl = null, CancellationToken cancellationToken = default)
         {
             WasCalled = true;
             LastRequest = request;
+            LastUpstreamUrl = upstreamUrl;
 
             return Task.FromResult(new ProxyResponse
             {
@@ -92,5 +100,77 @@ public class GatewayMiddlewareTests
         };
 
         public ClientIpResolutionResult Resolve(ClientIpContext context) => Result;
+    }
+
+    private static IApplicationPolicyService CreateApplicationPolicyService()
+    {
+        return new FakeApplicationPolicyService();
+    }
+
+    private static IAccessControlService CreateAccessControlService()
+    {
+        return new FakeAccessControlService();
+    }
+
+    private sealed class FakeApplicationPolicyService : IApplicationPolicyService
+    {
+        public Task<IReadOnlyList<Application.Applications.DTOs.ApplicationDto>> GetApplicationsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Application.Applications.DTOs.ApplicationDto>>(Array.Empty<Application.Applications.DTOs.ApplicationDto>());
+
+        public Task<Application.Applications.DTOs.ApplicationDto?> GetApplicationByIdAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.Applications.DTOs.ApplicationDto?>(null);
+
+        public Task<Application.Applications.DTOs.ApplicationDto?> GetApplicationByDomainAsync(string domain, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.Applications.DTOs.ApplicationDto?>(null);
+
+        public Task<Application.Applications.DTOs.ApplicationDto> CreateApplicationAsync(Application.Applications.DTOs.CreateApplicationRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Application.Applications.DTOs.ApplicationDto> UpdateApplicationAsync(Guid id, Application.Applications.DTOs.UpdateApplicationRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task DeleteApplicationAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<Application.Applications.DTOs.ApplicationPolicyDto?> GetPolicyAsync(Guid applicationId, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.Applications.DTOs.ApplicationPolicyDto?>(null);
+
+        public Task<Application.Applications.DTOs.ApplicationPolicyDto> UpdatePolicyAsync(Guid applicationId, Application.Applications.DTOs.UpdateApplicationPolicyRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Application.Applications.Models.ApplicationPolicyEvaluation> EvaluatePolicyAsync(Guid applicationId, string ipAddress, bool isAuthenticated, bool isIpTrusted, CancellationToken cancellationToken = default)
+            => Task.FromResult(new Application.Applications.Models.ApplicationPolicyEvaluation
+            {
+                Allowed = true,
+                Reason = null,
+                RequiresAuthentication = false,
+                IsAuthenticated = isAuthenticated
+            });
+    }
+
+    private sealed class FakeAccessControlService : IAccessControlService
+    {
+        public Task<bool> IsIpTrustedAsync(string ipAddress, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> IsBlockedAsync(string ipAddress, Guid? deviceId, Guid? userId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<Application.AccessControl.Models.DeviceTrustResult> EvaluateDeviceTrustAsync(Guid userId, Guid deviceId, string ipAddress, CancellationToken cancellationToken = default)
+            => Task.FromResult(new Application.AccessControl.Models.DeviceTrustResult
+            {
+                IsTrusted = true,
+                IsPending = false,
+                IsBlocked = false
+            });
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.TrustedNetworkDto>> GetTrustedNetworksAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.TrustedNetworkDto>>(Array.Empty<Application.AccessControl.DTOs.TrustedNetworkDto>());
+        public Task<Application.AccessControl.DTOs.TrustedNetworkDto?> GetTrustedNetworkByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Application.AccessControl.DTOs.TrustedNetworkDto?>(null);
+        public Task<Application.AccessControl.DTOs.TrustedNetworkDto> CreateTrustedNetworkAsync(Application.AccessControl.DTOs.CreateTrustedNetworkRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Application.AccessControl.DTOs.TrustedNetworkDto> UpdateTrustedNetworkAsync(Guid id, Application.AccessControl.DTOs.UpdateTrustedNetworkRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task DeleteTrustedNetworkAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.BlocklistEntryDto>> GetBlocklistEntriesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.BlocklistEntryDto>>(Array.Empty<Application.AccessControl.DTOs.BlocklistEntryDto>());
+        public Task<Application.AccessControl.DTOs.BlocklistEntryDto?> GetBlocklistEntryByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Application.AccessControl.DTOs.BlocklistEntryDto?>(null);
+        public Task<Application.AccessControl.DTOs.BlocklistEntryDto> CreateBlocklistEntryAsync(Application.AccessControl.DTOs.CreateBlocklistEntryRequest request, Guid? createdByUserId = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Application.AccessControl.DTOs.BlocklistEntryDto> UpdateBlocklistEntryAsync(Guid id, Application.AccessControl.DTOs.CreateBlocklistEntryRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task DeleteBlocklistEntryAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<Application.AccessControl.DTOs.AccessDecisionDto> ApproveDeviceAsync(Guid deviceId, Guid adminUserId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Application.AccessControl.DTOs.AccessDecisionDto> DenyDeviceAsync(Guid deviceId, Guid adminUserId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.AccessDecisionDto>> GetDecisionsForTargetAsync(SecurityGateway.Domain.AccessControl.AccessDecisionType type, Guid targetId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.AccessDecisionDto>>(Array.Empty<Application.AccessControl.DTOs.AccessDecisionDto>());
     }
 }

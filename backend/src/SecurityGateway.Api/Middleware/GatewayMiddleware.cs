@@ -1,3 +1,5 @@
+using SecurityGateway.Application.AccessControl;
+using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.IpIntelligence;
 
@@ -9,6 +11,8 @@ public sealed class GatewayMiddleware
     private readonly IProxyService _proxyService;
     private readonly IClientIpResolver _clientIpResolver;
     private readonly IIpIntelligenceService? _ipIntelligenceService;
+    private readonly IApplicationPolicyService _applicationPolicyService;
+    private readonly IAccessControlService _accessControlService;
     private readonly GatewayOptions _options;
     private readonly ILogger<GatewayMiddleware> _logger;
 
@@ -17,6 +21,8 @@ public sealed class GatewayMiddleware
         IProxyService proxyService,
         IClientIpResolver clientIpResolver,
         IIpIntelligenceService? ipIntelligenceService,
+        IApplicationPolicyService applicationPolicyService,
+        IAccessControlService accessControlService,
         GatewayOptions options,
         ILogger<GatewayMiddleware> logger)
     {
@@ -24,6 +30,8 @@ public sealed class GatewayMiddleware
         _proxyService = proxyService;
         _clientIpResolver = clientIpResolver;
         _ipIntelligenceService = ipIntelligenceService;
+        _applicationPolicyService = applicationPolicyService;
+        _accessControlService = accessControlService;
         _options = options;
         _logger = logger;
     }
@@ -57,6 +65,34 @@ public sealed class GatewayMiddleware
             }, context.RequestAborted);
         }
 
+        var host = context.Request.Host.Host;
+        var application = await _applicationPolicyService.GetApplicationByDomainAsync(host, context.RequestAborted).ConfigureAwait(false);
+
+        if (application is not null && !application.IsEnabled)
+        {
+            context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+            await context.Response.WriteAsync("Application is disabled.", context.RequestAborted).ConfigureAwait(false);
+            return;
+        }
+
+        var isAuthenticated = context.User.Identity?.IsAuthenticated ?? false;
+        var isIpTrusted = await _accessControlService.IsIpTrustedAsync(clientIpResult.ClientIp, context.RequestAborted).ConfigureAwait(false);
+
+        if (application is not null)
+        {
+            var evaluation = await _applicationPolicyService.EvaluatePolicyAsync(application.Id, clientIpResult.ClientIp, isAuthenticated, isIpTrusted, context.RequestAborted).ConfigureAwait(false);
+
+            if (!evaluation.Allowed)
+            {
+                context.Response.StatusCode = evaluation.RequiresAuthentication && !evaluation.IsAuthenticated
+                    ? StatusCodes.Status401Unauthorized
+                    : StatusCodes.Status403Forbidden;
+
+                await context.Response.WriteAsync(evaluation.Reason ?? "Access denied.", context.RequestAborted).ConfigureAwait(false);
+                return;
+            }
+        }
+
         var proxyRequest = new ProxyRequestContext
         {
             Method = context.Request.Method,
@@ -70,7 +106,8 @@ public sealed class GatewayMiddleware
             ClientIp = clientIpResult.ClientIp
         };
 
-        using var proxyResponse = await _proxyService.ForwardAsync(proxyRequest, context.RequestAborted).ConfigureAwait(false);
+        var upstreamUrl = application?.UpstreamUrl;
+        using var proxyResponse = await _proxyService.ForwardAsync(proxyRequest, upstreamUrl, context.RequestAborted).ConfigureAwait(false);
 
         context.Response.StatusCode = proxyResponse.StatusCode;
 
