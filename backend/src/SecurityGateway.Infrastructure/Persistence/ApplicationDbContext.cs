@@ -3,6 +3,7 @@ using SecurityGateway.Application.Identity;
 using SecurityGateway.Domain.AccessControl;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Domain.IpIntelligence;
+using SecurityGateway.Domain.RateLimiting;
 using ApplicationEntity = SecurityGateway.Domain.Applications.Application;
 using ApplicationPolicyEntity = SecurityGateway.Domain.Applications.ApplicationPolicy;
 
@@ -27,6 +28,7 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<AccessDecision> AccessDecisions => Set<AccessDecision>();
     public DbSet<ApplicationEntity> Applications => Set<ApplicationEntity>();
     public DbSet<ApplicationPolicyEntity> ApplicationPolicies => Set<ApplicationPolicyEntity>();
+    public DbSet<RateLimitRule> RateLimitRules => Set<RateLimitRule>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
 
@@ -153,6 +155,13 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.Property(e => e.BlockedCountries).HasMaxLength(1000);
             entity.Property(e => e.AllowedIpAddresses).HasMaxLength(2000);
             entity.Property(e => e.BlockedIpAddresses).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<RateLimitRule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ScopeType, e.ScopeValue });
+            entity.Property(e => e.ScopeValue).HasMaxLength(500);
         });
 
         modelBuilder.Entity<PasswordResetToken>(entity =>

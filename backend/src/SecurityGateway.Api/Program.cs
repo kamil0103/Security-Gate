@@ -9,9 +9,11 @@ using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
+using SecurityGateway.Application.RateLimiting;
 using SecurityGateway.Infrastructure.Gateway;
 using SecurityGateway.Infrastructure.Health;
 using SecurityGateway.Infrastructure.Identity;
+using StackExchange.Redis;
 using SecurityGateway.Infrastructure.IpIntelligence;
 using SecurityGateway.Infrastructure.IpIntelligence.Providers;
 using SecurityGateway.Infrastructure.IpIntelligence.Repositories;
@@ -21,6 +23,9 @@ using SecurityGateway.Infrastructure.AccessControl.Repositories;
 using SecurityGateway.Infrastructure.AccessControl.Services;
 using SecurityGateway.Infrastructure.Applications.Repositories;
 using SecurityGateway.Infrastructure.Applications.Services;
+using SecurityGateway.Infrastructure.RateLimiting.Repositories;
+using SecurityGateway.Infrastructure.RateLimiting.Services;
+using SecurityGateway.Infrastructure.RateLimiting.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +35,7 @@ var postgresConnectionString = builder.Configuration.GetConnectionString("Postgr
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
     ?? throw new InvalidOperationException("Redis connection string is not configured.");
 
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnectionString));
 builder.Services.AddSingleton<IHealthCheckService>(_ => new HealthCheckService(postgresConnectionString, redisConnectionString));
 
 var gatewayOptions = builder.Configuration.GetSection(GatewayOptions.SectionName).Get<GatewayOptions>()
@@ -80,6 +86,11 @@ builder.Services.AddScoped<IAccessControlService, AccessControlService>();
 builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
 builder.Services.AddScoped<IApplicationPolicyRepository, ApplicationPolicyRepository>();
 builder.Services.AddScoped<IApplicationPolicyService, ApplicationPolicyService>();
+
+// Rate limiting services
+builder.Services.AddSingleton<IRateLimitStore, RedisRateLimitStore>();
+builder.Services.AddScoped<IRateLimitRuleRepository, RateLimitRuleRepository>();
+builder.Services.AddScoped<IRateLimitService, RateLimitService>();
 
 // IP intelligence providers (replace with real providers in production)
 builder.Services.AddSingleton<IGeoIpProvider, NullGeoIpProvider>();

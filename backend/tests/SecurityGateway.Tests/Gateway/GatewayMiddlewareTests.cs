@@ -4,6 +4,8 @@ using SecurityGateway.Api.Middleware;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Gateway;
+using SecurityGateway.Application.RateLimiting;
+using SecurityGateway.Application.RateLimiting.Models;
 using Xunit;
 
 namespace SecurityGateway.Tests.Gateway;
@@ -25,6 +27,7 @@ public class GatewayMiddlewareTests
             null,
             CreateApplicationPolicyService(),
             CreateAccessControlService(),
+            CreateRateLimitService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -51,6 +54,7 @@ public class GatewayMiddlewareTests
             null,
             CreateApplicationPolicyService(),
             CreateAccessControlService(),
+            CreateRateLimitService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -110,6 +114,11 @@ public class GatewayMiddlewareTests
     private static IAccessControlService CreateAccessControlService()
     {
         return new FakeAccessControlService();
+    }
+
+    private static IRateLimitService CreateRateLimitService()
+    {
+        return new FakeRateLimitService();
     }
 
     private sealed class FakeApplicationPolicyService : IApplicationPolicyService
@@ -172,5 +181,31 @@ public class GatewayMiddlewareTests
         public Task<Application.AccessControl.DTOs.AccessDecisionDto> ApproveDeviceAsync(Guid deviceId, Guid adminUserId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<Application.AccessControl.DTOs.AccessDecisionDto> DenyDeviceAsync(Guid deviceId, Guid adminUserId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
         public Task<IReadOnlyList<Application.AccessControl.DTOs.AccessDecisionDto>> GetDecisionsForTargetAsync(SecurityGateway.Domain.AccessControl.AccessDecisionType type, Guid targetId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.AccessDecisionDto>>(Array.Empty<Application.AccessControl.DTOs.AccessDecisionDto>());
+    }
+
+    private sealed class FakeRateLimitService : IRateLimitService
+    {
+        public Task<RateLimitResult> CheckAsync(Application.RateLimiting.Models.RateLimitRequestContext context, CancellationToken cancellationToken = default)
+            => Task.FromResult(new RateLimitResult
+            {
+                Allowed = true,
+                Remaining = int.MaxValue,
+                ResetAt = DateTimeOffset.UtcNow
+            });
+
+        public Task<IReadOnlyList<Application.RateLimiting.DTOs.RateLimitRuleDto>> GetRulesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Application.RateLimiting.DTOs.RateLimitRuleDto>>(Array.Empty<Application.RateLimiting.DTOs.RateLimitRuleDto>());
+
+        public Task<Application.RateLimiting.DTOs.RateLimitRuleDto?> GetRuleByIdAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.RateLimiting.DTOs.RateLimitRuleDto?>(null);
+
+        public Task<Application.RateLimiting.DTOs.RateLimitRuleDto> CreateRuleAsync(Application.RateLimiting.DTOs.CreateRateLimitRuleRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Application.RateLimiting.DTOs.RateLimitRuleDto> UpdateRuleAsync(Guid id, Application.RateLimiting.DTOs.CreateRateLimitRuleRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task DeleteRuleAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
     }
 }

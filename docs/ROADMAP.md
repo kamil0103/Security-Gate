@@ -97,12 +97,17 @@
 
 **Milestone:** Each proxied domain can be configured independently, and the gateway enforces authentication and IP-based access rules before forwarding traffic.
 
-## Phase 8 — Rate Limiting
+## Phase 8 — Rate Limiting ✅
 
-- Redis-backed rate limiting
-- IP/user/device/domain/endpoint limits
-- Temporary throttling and bans
-- Automatic escalation
+- Redis-backed rate limiting via `IRateLimitStore` and `RedisRateLimitStore`
+- Rate limit rules by scope: Global, IP, User, Device, Domain, Endpoint
+- Fixed-window counters with burst allowance
+- Automatic escalation to temporary IP blocklist entries when limits are exceeded by 2x
+- `RateLimitService` integrated into the gateway middleware (returns 429 when exceeded)
+- `RateLimitController` for admin rule management
+- EF Core migration `AddRateLimiting`
+
+**Milestone:** The gateway enforces configurable request rate limits per IP, user, device, domain, and endpoint, with automatic temporary bans for abusers.
 
 ## Phase 9 — WAF
 

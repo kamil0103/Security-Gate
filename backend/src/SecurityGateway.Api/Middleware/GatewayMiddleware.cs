@@ -1,7 +1,10 @@
+using System.Security.Claims;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.IpIntelligence;
+using SecurityGateway.Application.RateLimiting;
+using SecurityGateway.Application.RateLimiting.Models;
 
 namespace SecurityGateway.Api.Middleware;
 
@@ -13,6 +16,7 @@ public sealed class GatewayMiddleware
     private readonly IIpIntelligenceService? _ipIntelligenceService;
     private readonly IApplicationPolicyService _applicationPolicyService;
     private readonly IAccessControlService _accessControlService;
+    private readonly IRateLimitService _rateLimitService;
     private readonly GatewayOptions _options;
     private readonly ILogger<GatewayMiddleware> _logger;
 
@@ -23,6 +27,7 @@ public sealed class GatewayMiddleware
         IIpIntelligenceService? ipIntelligenceService,
         IApplicationPolicyService applicationPolicyService,
         IAccessControlService accessControlService,
+        IRateLimitService rateLimitService,
         GatewayOptions options,
         ILogger<GatewayMiddleware> logger)
     {
@@ -32,6 +37,7 @@ public sealed class GatewayMiddleware
         _ipIntelligenceService = ipIntelligenceService;
         _applicationPolicyService = applicationPolicyService;
         _accessControlService = accessControlService;
+        _rateLimitService = rateLimitService;
         _options = options;
         _logger = logger;
     }
@@ -93,6 +99,25 @@ public sealed class GatewayMiddleware
             }
         }
 
+        var userId = GetUserId(context);
+        var rateLimitContext = new RateLimitRequestContext
+        {
+            IpAddress = clientIpResult.ClientIp,
+            UserId = userId,
+            Domain = context.Request.Host.Host,
+            Endpoint = path
+        };
+
+        var rateLimitResult = await _rateLimitService.CheckAsync(rateLimitContext, context.RequestAborted).ConfigureAwait(false);
+
+        if (!rateLimitResult.Allowed)
+        {
+            context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
+            context.Response.Headers.RetryAfter = rateLimitResult.ResetAt.Subtract(DateTimeOffset.UtcNow).TotalSeconds.ToString("0");
+            await context.Response.WriteAsync(rateLimitResult.Reason ?? "Rate limit exceeded.", context.RequestAborted).ConfigureAwait(false);
+            return;
+        }
+
         var proxyRequest = new ProxyRequestContext
         {
             Method = context.Request.Method,
@@ -117,6 +142,14 @@ public sealed class GatewayMiddleware
         }
 
         await proxyResponse.Body.CopyToAsync(context.Response.Body, context.RequestAborted).ConfigureAwait(false);
+    }
+
+    private static Guid? GetUserId(HttpContext context)
+    {
+        var userIdClaim = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+            ?? context.User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)?.Value;
+
+        return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
     }
 
     private bool IsAdminPath(string path)
