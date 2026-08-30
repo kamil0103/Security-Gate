@@ -97,6 +97,31 @@ curl http://localhost:5100/api/auth/me \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
+### Device Identity
+
+Devices are enrolled automatically during login and registration. The first device for a user is trusted; additional devices start as pending.
+
+List your devices:
+
+```bash
+curl http://localhost:5100/api/devices \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+List pending devices:
+
+```bash
+curl http://localhost:5100/api/devices/pending \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+Trust a pending device:
+
+```bash
+curl -X POST http://localhost:5100/api/devices/DEVICE_ID/trust \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
 ### Frontend
 
 Open [http://localhost:3100](http://localhost:3100) in your browser. You should see the Security Gateway status page.

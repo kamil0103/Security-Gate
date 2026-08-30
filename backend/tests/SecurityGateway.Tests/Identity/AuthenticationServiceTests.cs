@@ -27,6 +27,7 @@ public class AuthenticationServiceTests : IDisposable
         var userRepository = new UserRepository(_context);
         var sessionRepository = new SessionRepository(_context);
         var tokenRepository = new TokenRepository(_context);
+        var deviceRepository = new DeviceRepository(_context);
         var passwordHasher = new Argon2PasswordHasher();
         var jwtOptions = new JwtOptions
         {
@@ -38,11 +39,13 @@ public class AuthenticationServiceTests : IDisposable
         };
         var tokenService = new JwtTokenService(jwtOptions);
         _emailService = new FakeEmailService();
+        var deviceIdentityService = new DeviceIdentityService(deviceRepository, _context);
 
         _service = new AuthenticationService(
             userRepository,
             sessionRepository,
             tokenRepository,
+            deviceIdentityService,
             passwordHasher,
             tokenService,
             _emailService,

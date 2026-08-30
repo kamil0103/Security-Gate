@@ -18,11 +18,14 @@ public class AuthControllerTests : IClassFixture<TestWebApplicationFactory>
     public async Task Register_ReturnsUserAndTokens()
     {
         var client = _factory.CreateClient();
-        var request = new RegisterRequest
+        var request = new RegisterWithDeviceRequest
         {
-            Username = "apitest",
-            Email = "apitest@example.com",
-            Password = "StrongPassword123!"
+            User = new RegisterRequest
+            {
+                Username = "apitest",
+                Email = "apitest@example.com",
+                Password = "StrongPassword123!"
+            }
         };
 
         var response = await client.PostAsJsonAsync("/api/auth/register", request);
@@ -32,6 +35,7 @@ public class AuthControllerTests : IClassFixture<TestWebApplicationFactory>
         Assert.NotNull(result);
         Assert.Equal("apitest", result.User.Username);
         Assert.False(string.IsNullOrWhiteSpace(result.Tokens.AccessToken));
+        Assert.True(result.Device.IsTrusted);
     }
 
     [Fact]
@@ -39,19 +43,25 @@ public class AuthControllerTests : IClassFixture<TestWebApplicationFactory>
     {
         var client = _factory.CreateClient();
 
-        var registerRequest = new RegisterRequest
+        var registerRequest = new RegisterWithDeviceRequest
         {
-            Username = "logintest",
-            Email = "logintest@example.com",
-            Password = "StrongPassword123!"
+            User = new RegisterRequest
+            {
+                Username = "logintest",
+                Email = "logintest@example.com",
+                Password = "StrongPassword123!"
+            }
         };
 
         await client.PostAsJsonAsync("/api/auth/register", registerRequest);
 
-        var loginRequest = new LoginRequest
+        var loginRequest = new LoginWithDeviceRequest
         {
-            UsernameOrEmail = "logintest",
-            Password = "StrongPassword123!"
+            User = new LoginRequest
+            {
+                UsernameOrEmail = "logintest",
+                Password = "StrongPassword123!"
+            }
         };
 
         var response = await client.PostAsJsonAsync("/api/auth/login", loginRequest);
@@ -76,11 +86,14 @@ public class AuthControllerTests : IClassFixture<TestWebApplicationFactory>
     {
         var client = _factory.CreateClient();
 
-        var registerRequest = new RegisterRequest
+        var registerRequest = new RegisterWithDeviceRequest
         {
-            Username = "metest",
-            Email = "metest@example.com",
-            Password = "StrongPassword123!"
+            User = new RegisterRequest
+            {
+                Username = "metest",
+                Email = "metest@example.com",
+                Password = "StrongPassword123!"
+            }
         };
 
         var registerResponse = await client.PostAsJsonAsync("/api/auth/register", registerRequest);
