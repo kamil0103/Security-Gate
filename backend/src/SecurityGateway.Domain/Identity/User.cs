@@ -13,6 +13,7 @@ public sealed class User
     public bool EmailVerified { get; set; }
 
     public ICollection<Session> Sessions { get; init; } = new List<Session>();
+    public ICollection<Device> Devices { get; init; } = new List<Device>();
     public ICollection<PasswordResetToken> PasswordResetTokens { get; init; } = new List<PasswordResetToken>();
     public ICollection<EmailVerificationToken> EmailVerificationTokens { get; init; } = new List<EmailVerificationToken>();
 }
