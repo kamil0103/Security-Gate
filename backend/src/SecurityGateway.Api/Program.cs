@@ -10,6 +10,7 @@ using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Application.RateLimiting;
+using SecurityGateway.Application.Waf;
 using SecurityGateway.Infrastructure.Gateway;
 using SecurityGateway.Infrastructure.Health;
 using SecurityGateway.Infrastructure.Identity;
@@ -26,6 +27,8 @@ using SecurityGateway.Infrastructure.Applications.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Repositories;
 using SecurityGateway.Infrastructure.RateLimiting.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Stores;
+using SecurityGateway.Infrastructure.Waf.Repositories;
+using SecurityGateway.Infrastructure.Waf.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -91,6 +94,11 @@ builder.Services.AddScoped<IApplicationPolicyService, ApplicationPolicyService>(
 builder.Services.AddSingleton<IRateLimitStore, RedisRateLimitStore>();
 builder.Services.AddScoped<IRateLimitRuleRepository, RateLimitRuleRepository>();
 builder.Services.AddScoped<IRateLimitService, RateLimitService>();
+
+// WAF services
+builder.Services.AddSingleton<IAttackClassifier, ModSecurityAttackClassifier>();
+builder.Services.AddScoped<IWafEventRepository, WafEventRepository>();
+builder.Services.AddScoped<IWafEventService, WafEventService>();
 
 // IP intelligence providers (replace with real providers in production)
 builder.Services.AddSingleton<IGeoIpProvider, NullGeoIpProvider>();

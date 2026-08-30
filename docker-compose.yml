@@ -110,6 +110,24 @@ services:
     networks:
       - security-gateway
 
+  modsecurity-crs:
+    image: owasp/modsecurity-crs:nginx-alpine
+    container_name: security-gateway-modsecurity-crs
+    restart: unless-stopped
+    environment:
+      BACKEND: http://backend:8080
+      PORT: "8080"
+      MODSEC_RULE_ENGINE: "On"
+      MODSEC_DEFAULT_RULESET: "OwaspCrs"
+      CRS_ENABLE_TEST_MARKER: "0"
+    ports:
+      - "${MODSECURITY_PORT:-5101}:8080"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - security-gateway
+
 volumes:
   postgres_data:
   redis_data:

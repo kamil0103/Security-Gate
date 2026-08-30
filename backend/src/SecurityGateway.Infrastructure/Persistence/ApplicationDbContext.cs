@@ -4,6 +4,7 @@ using SecurityGateway.Domain.AccessControl;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Domain.IpIntelligence;
 using SecurityGateway.Domain.RateLimiting;
+using SecurityGateway.Domain.Waf;
 using ApplicationEntity = SecurityGateway.Domain.Applications.Application;
 using ApplicationPolicyEntity = SecurityGateway.Domain.Applications.ApplicationPolicy;
 
@@ -29,6 +30,7 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<ApplicationEntity> Applications => Set<ApplicationEntity>();
     public DbSet<ApplicationPolicyEntity> ApplicationPolicies => Set<ApplicationPolicyEntity>();
     public DbSet<RateLimitRule> RateLimitRules => Set<RateLimitRule>();
+    public DbSet<WafEvent> WafEvents => Set<WafEvent>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
 
@@ -162,6 +164,22 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.ScopeType, e.ScopeValue });
             entity.Property(e => e.ScopeValue).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<WafEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.SourceIp);
+            entity.HasIndex(e => e.AttackType);
+            entity.HasIndex(e => e.Severity);
+            entity.Property(e => e.SourceIp).HasMaxLength(64);
+            entity.Property(e => e.RequestId).HasMaxLength(64);
+            entity.Property(e => e.RuleId).HasMaxLength(64);
+            entity.Property(e => e.RuleMessage).HasMaxLength(1000);
+            entity.Property(e => e.Method).HasMaxLength(16);
+            entity.Property(e => e.Uri).HasMaxLength(2000);
+            entity.Property(e => e.Host).HasMaxLength(253);
         });
 
         modelBuilder.Entity<PasswordResetToken>(entity =>

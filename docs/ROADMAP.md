@@ -109,11 +109,18 @@
 
 **Milestone:** The gateway enforces configurable request rate limits per IP, user, device, domain, and endpoint, with automatic temporary bans for abusers.
 
-## Phase 9 — WAF
+## Phase 9 — WAF ✅
 
-- ModSecurity + OWASP CRS integration
-- WAF event consumption
-- Attack classification
+- `WafEvent` domain model for ModSecurity/CRS event ingestion
+- `IAttackClassifier` abstraction with `ModSecurityAttackClassifier`
+- Attack types: SQLi, XSS, LFI, RFI, RCE, command injection, path traversal, brute force, bot, scanning
+- `WafEventService` that ingests events, classifies attacks, and correlates with IP intelligence
+- `WafEventsController` with anonymous ingestion endpoint and admin search/recent endpoints
+- IP intelligence correlation: increments `AttackCount` and updates threat score/level
+- Reference `modsecurity-crs` service in `docker-compose.yml`
+- EF Core migration `AddWafEvents`
+
+**Milestone:** Security Gateway can consume WAF events from ModSecurity + OWASP CRS, classify attacks, and enrich IP intelligence with attack history.
 
 ## Phase 10 — Threat Detection
 
