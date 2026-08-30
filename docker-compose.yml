@@ -62,6 +62,9 @@ services:
       Smtp__FromName: ${Smtp__FromName:-Security Gateway}
       Gateway__UpstreamNpmUrl: ${GATEWAY_UPSTREAM_NPM_URL:-http://npm-placeholder:80}
       Gateway__TrustedProxies: ${TrustedProxies:-127.0.0.1,::1,172.16.0.0/12,192.168.0.0/16,10.0.0.0/8}
+      DefaultAdmin__Username: ${DEFAULT_ADMIN_USERNAME:-admin}
+      DefaultAdmin__Email: ${DEFAULT_ADMIN_EMAIL:-admin@toncom159.com}
+      DefaultAdmin__Password: ${DEFAULT_ADMIN_PASSWORD:-ChangeMeInProduction123!}
     ports:
       - "${BACKEND_PORT:-5100}:8080"
     depends_on:
