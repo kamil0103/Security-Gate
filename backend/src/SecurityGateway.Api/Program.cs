@@ -335,12 +335,12 @@ if (!app.Environment.IsDevelopment() && hstsOptions.Enabled)
     app.UseHsts();
 }
 
+app.UseAuthentication();
+app.UseAuthorization();
+
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseMiddleware<GatewayMiddleware>();
-
-app.UseAuthentication();
-app.UseAuthorization();
 
 app.MapControllers();
 
