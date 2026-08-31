@@ -3,6 +3,7 @@ using SecurityGateway.Application.Identity;
 using SecurityGateway.Domain.AccessControl;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Domain.IpIntelligence;
+using SecurityGateway.Domain.Notifications;
 using SecurityGateway.Domain.RateLimiting;
 using SecurityGateway.Domain.ThreatDetection;
 using SecurityGateway.Domain.Waf;
@@ -36,6 +37,8 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<ThreatScoreRule> ThreatScoreRules => Set<ThreatScoreRule>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
+    public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
+    public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -220,6 +223,25 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.HasIndex(e => e.TokenHash);
             entity.HasOne(e => e.User).WithMany(u => u.EmailVerificationTokens).HasForeignKey(e => e.UserId);
             entity.Property(e => e.TokenHash).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<NotificationChannel>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.Configuration).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<NotificationLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.Property(e => e.Recipient).HasMaxLength(500);
+            entity.Property(e => e.Subject).HasMaxLength(500);
+            entity.Property(e => e.ChannelType).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(16);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
         });
     }
 }
