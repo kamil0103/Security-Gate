@@ -1,3 +1,4 @@
+using SecurityGateway.Application.Blocking;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Application.ThreatDetection;
@@ -13,17 +14,20 @@ public sealed class ThreatDetectionService : IThreatDetectionService
     private readonly ISecurityEventRepository _securityEventRepository;
     private readonly IThreatScoreRuleRepository _ruleRepository;
     private readonly IIpAddressRepository _ipAddressRepository;
+    private readonly IAutomaticBlockingService? _automaticBlockingService;
     private readonly IUnitOfWork _unitOfWork;
 
     public ThreatDetectionService(
         ISecurityEventRepository securityEventRepository,
         IThreatScoreRuleRepository ruleRepository,
         IIpAddressRepository ipAddressRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        IAutomaticBlockingService? automaticBlockingService = null)
     {
         _securityEventRepository = securityEventRepository;
         _ruleRepository = ruleRepository;
         _ipAddressRepository = ipAddressRepository;
+        _automaticBlockingService = automaticBlockingService;
         _unitOfWork = unitOfWork;
     }
 
@@ -206,6 +210,11 @@ public sealed class ThreatDetectionService : IThreatDetectionService
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        if (_automaticBlockingService is not null && escalated)
+        {
+            await _automaticBlockingService.CheckAndBlockAsync(sourceIp, ip.ThreatScore, cancellationToken).ConfigureAwait(false);
+        }
 
         return new ThreatScoreResult
         {

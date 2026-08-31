@@ -65,7 +65,17 @@ public sealed class BlocklistRepository : IBlocklistRepository
 
     public Task DeleteAsync(BlocklistEntry entry, CancellationToken cancellationToken = default)
     {
-        _context.BlocklistEntries.Remove(entry);
+        var tracked = _context.BlocklistEntries.Local.FirstOrDefault(e => e.Id == entry.Id);
+
+        if (tracked is not null)
+        {
+            _context.BlocklistEntries.Remove(tracked);
+        }
+        else
+        {
+            _context.BlocklistEntries.Remove(entry);
+        }
+
         return Task.CompletedTask;
     }
 }

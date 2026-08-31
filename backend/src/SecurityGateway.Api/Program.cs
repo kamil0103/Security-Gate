@@ -7,6 +7,7 @@ using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.Health;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Applications;
+using SecurityGateway.Application.Blocking;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Application.RateLimiting;
@@ -25,6 +26,7 @@ using SecurityGateway.Infrastructure.AccessControl.Repositories;
 using SecurityGateway.Infrastructure.AccessControl.Services;
 using SecurityGateway.Infrastructure.Applications.Repositories;
 using SecurityGateway.Infrastructure.Applications.Services;
+using SecurityGateway.Infrastructure.Blocking.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Repositories;
 using SecurityGateway.Infrastructure.RateLimiting.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Stores;
@@ -48,6 +50,11 @@ var gatewayOptions = builder.Configuration.GetSection(GatewayOptions.SectionName
     ?? new GatewayOptions();
 
 builder.Services.AddSingleton(gatewayOptions);
+
+var automaticBlockingOptions = builder.Configuration.GetSection(AutomaticBlockingOptions.SectionName).Get<AutomaticBlockingOptions>()
+    ?? new AutomaticBlockingOptions();
+
+builder.Services.AddSingleton(automaticBlockingOptions);
 builder.Services.AddSingleton<IClientIpResolver>(_ => new ForwardedHeadersClientIpResolver(gatewayOptions.TrustedProxies.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
 
 builder.Services.AddHttpClient<IProxyService, HttpClientProxyService>((serviceProvider, client) =>
@@ -107,6 +114,9 @@ builder.Services.AddScoped<IWafEventService, WafEventService>();
 builder.Services.AddScoped<ISecurityEventRepository, SecurityEventRepository>();
 builder.Services.AddScoped<IThreatScoreRuleRepository, ThreatScoreRuleRepository>();
 builder.Services.AddScoped<IThreatDetectionService, ThreatDetectionService>();
+
+// Automatic blocking service
+builder.Services.AddScoped<IAutomaticBlockingService, AutomaticBlockingService>();
 
 // IP intelligence providers (replace with real providers in production)
 builder.Services.AddSingleton<IGeoIpProvider, NullGeoIpProvider>();
