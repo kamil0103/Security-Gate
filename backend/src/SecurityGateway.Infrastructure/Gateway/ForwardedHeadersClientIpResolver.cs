@@ -133,7 +133,14 @@ public sealed class ForwardedHeadersClientIpResolver : IClientIpResolver
 
     private static bool TryParseIp(string value, out IPAddress ip)
     {
-        return IPAddress.TryParse(value.Trim(), out ip!);
+        if (!IPAddress.TryParse(value.Trim(), out var parsed))
+        {
+            ip = IPAddress.None;
+            return false;
+        }
+
+        ip = NormalizeIp(parsed);
+        return true;
     }
 
     private static IPAddress? ParseIp(string? value)
@@ -143,7 +150,12 @@ public sealed class ForwardedHeadersClientIpResolver : IClientIpResolver
             return null;
         }
 
-        return IPAddress.TryParse(value.Trim(), out var ip) ? ip : null;
+        return IPAddress.TryParse(value.Trim(), out var ip) ? NormalizeIp(ip) : null;
+    }
+
+    private static IPAddress NormalizeIp(IPAddress ip)
+    {
+        return ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip;
     }
 
     private static bool TryParseCidr(string value, out IPAddress network, out int prefixLength)

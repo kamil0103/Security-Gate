@@ -44,6 +44,11 @@ public sealed class HttpClientProxyService : IProxyService
             upstreamRequest.Headers.TryAddWithoutValidation(name, values);
         }
 
+        if (!string.IsNullOrWhiteSpace(request.Host))
+        {
+            upstreamRequest.Headers.Host = request.Host;
+        }
+
         if (request.ClientIp is not null)
         {
             upstreamRequest.Headers.TryAddWithoutValidation("X-Forwarded-For", request.ClientIp);

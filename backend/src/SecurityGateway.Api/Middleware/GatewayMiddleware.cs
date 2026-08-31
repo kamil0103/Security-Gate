@@ -69,10 +69,17 @@ public sealed class GatewayMiddleware
 
         if (_ipIntelligenceService is not null)
         {
-            _ = _ipIntelligenceService.TrackAsync(new TrackIpRequest
+            try
             {
-                IpAddress = clientIpResult.ClientIp
-            }, context.RequestAborted);
+                await _ipIntelligenceService.TrackAsync(new TrackIpRequest
+                {
+                    IpAddress = clientIpResult.ClientIp
+                }, context.RequestAborted).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Non-critical IP intelligence tracking failed for {ClientIp}.", clientIpResult.ClientIp);
+            }
         }
 
         var host = context.Request.Host.Host;
@@ -138,6 +145,7 @@ public sealed class GatewayMiddleware
             Method = context.Request.Method,
             Path = path,
             QueryString = context.Request.QueryString.Value ?? string.Empty,
+            Host = context.Request.Host.Host,
             Headers = context.Request.Headers.ToDictionary(
                 h => h.Key,
                 h => h.Value.Where(v => v is not null).Cast<string>().AsEnumerable(),
