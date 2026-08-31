@@ -12,6 +12,7 @@ using SecurityGateway.Application.Dashboard;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Application.Map;
+using SecurityGateway.Application.Notifications;
 using SecurityGateway.Application.RateLimiting;
 using SecurityGateway.Application.ThreatDetection;
 using SecurityGateway.Application.Waf;
@@ -31,6 +32,9 @@ using SecurityGateway.Infrastructure.Applications.Services;
 using SecurityGateway.Infrastructure.Blocking.Services;
 using SecurityGateway.Infrastructure.Dashboard.Services;
 using SecurityGateway.Infrastructure.Map.Services;
+using SecurityGateway.Infrastructure.Notifications.Providers;
+using SecurityGateway.Infrastructure.Notifications.Repositories;
+using SecurityGateway.Infrastructure.Notifications.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Repositories;
 using SecurityGateway.Infrastructure.RateLimiting.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Stores;
@@ -127,6 +131,19 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // Map service
 builder.Services.AddScoped<IMapService, MapService>();
+
+// Notification repositories and service
+builder.Services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();
+builder.Services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
+
+// Notification channel providers
+builder.Services.AddScoped<INotificationChannelProvider, EmailNotificationProvider>();
+builder.Services.AddHttpClient<INotificationChannelProvider, TelegramNotificationProvider>();
+builder.Services.AddHttpClient<INotificationChannelProvider, DiscordNotificationProvider>();
+builder.Services.AddHttpClient<INotificationChannelProvider, NtfyNotificationProvider>();
+builder.Services.AddScoped<INotificationChannelProvider, WebPushNotificationProvider>();
 
 // IP intelligence providers (replace with real providers in production)
 builder.Services.AddSingleton<IGeoIpProvider, NullGeoIpProvider>();

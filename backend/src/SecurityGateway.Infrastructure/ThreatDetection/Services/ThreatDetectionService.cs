@@ -1,6 +1,7 @@
 using SecurityGateway.Application.Blocking;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
+using SecurityGateway.Application.Notifications;
 using SecurityGateway.Application.ThreatDetection;
 using SecurityGateway.Application.ThreatDetection.DTOs;
 using SecurityGateway.Application.ThreatDetection.Models;
@@ -15,6 +16,7 @@ public sealed class ThreatDetectionService : IThreatDetectionService
     private readonly IThreatScoreRuleRepository _ruleRepository;
     private readonly IIpAddressRepository _ipAddressRepository;
     private readonly IAutomaticBlockingService? _automaticBlockingService;
+    private readonly INotificationDispatcher? _notificationDispatcher;
     private readonly IUnitOfWork _unitOfWork;
 
     public ThreatDetectionService(
@@ -22,12 +24,14 @@ public sealed class ThreatDetectionService : IThreatDetectionService
         IThreatScoreRuleRepository ruleRepository,
         IIpAddressRepository ipAddressRepository,
         IUnitOfWork unitOfWork,
-        IAutomaticBlockingService? automaticBlockingService = null)
+        IAutomaticBlockingService? automaticBlockingService = null,
+        INotificationDispatcher? notificationDispatcher = null)
     {
         _securityEventRepository = securityEventRepository;
         _ruleRepository = ruleRepository;
         _ipAddressRepository = ipAddressRepository;
         _automaticBlockingService = automaticBlockingService;
+        _notificationDispatcher = notificationDispatcher;
         _unitOfWork = unitOfWork;
     }
 
@@ -50,6 +54,11 @@ public sealed class ThreatDetectionService : IThreatDetectionService
 
         await _securityEventRepository.AddAsync(securityEvent, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        if (_notificationDispatcher is not null)
+        {
+            await _notificationDispatcher.DispatchAsync(securityEvent, cancellationToken).ConfigureAwait(false);
+        }
 
         var scoreResult = await EvaluateThreatScoreAsync(request.SourceIp, cancellationToken).ConfigureAwait(false);
 

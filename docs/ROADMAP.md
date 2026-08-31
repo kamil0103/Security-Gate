@@ -177,13 +177,22 @@
 
 **Milestone:** Administrators can visualize threats and attacks on a world map and inspect detailed GeoIP and reputation data for any IP.
 
-## Phase 14 — Notifications
+## Phase 14 — Notifications ✅
 
-- SMTP/email
-- Telegram
-- Discord
-- ntfy
-- Web push
+- `NotificationChannel` and `NotificationLog` entities
+- `INotificationChannelProvider` abstraction with pluggable providers
+- Providers implemented:
+  - Email via existing `IEmailService` / SMTP
+  - Telegram via Bot API
+  - Discord via webhooks
+  - ntfy via HTTP POST
+  - WebPush stub validating VAPID keys (full push delivery deferred)
+- `INotificationService` for admin CRUD, test sends, and recent logs
+- `INotificationDispatcher` integrated into `ThreatDetectionService` for High/Critical security events
+- `NotificationsController` for administrators to manage channels and logs
+- EF Core migration `AddNotifications`
+
+**Milestone:** Administrators can configure multiple notification channels and receive alerts for high-severity security events.
 
 ## Phase 15 — Audit
 
