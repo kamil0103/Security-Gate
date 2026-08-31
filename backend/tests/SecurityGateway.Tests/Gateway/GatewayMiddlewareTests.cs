@@ -149,8 +149,10 @@ public class GatewayMiddlewareTests
 
     private sealed class FakeAccessRequestService : IAccessRequestService
     {
+        public AccessEvaluationResult Result { get; set; } = new() { Decision = AccessEvaluationDecision.Allow };
+
         public Task<AccessEvaluationResult> EvaluateAccessAsync(AccessEvaluationContext context, CancellationToken cancellationToken = default)
-            => Task.FromResult(new AccessEvaluationResult { Decision = AccessEvaluationDecision.Allow });
+            => Task.FromResult(Result);
 
         public Task<Application.AccessControl.DTOs.AccessRequestDto?> GetByPublicIdAsync(string publicId, CancellationToken cancellationToken = default)
             => Task.FromResult<Application.AccessControl.DTOs.AccessRequestDto?>(null);
@@ -192,7 +194,25 @@ public class GatewayMiddlewareTests
             => Task.FromResult<Application.Applications.DTOs.ApplicationDto?>(null);
 
         public Task<Application.Applications.DTOs.ApplicationDto?> GetApplicationByDomainAsync(string domain, CancellationToken cancellationToken = default)
-            => Task.FromResult<Application.Applications.DTOs.ApplicationDto?>(null);
+            => Task.FromResult<Application.Applications.DTOs.ApplicationDto?>(
+                domain == "protected.example.com"
+                    ? new Application.Applications.DTOs.ApplicationDto
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                        Name = "Protected",
+                        Domain = "protected.example.com",
+                        UpstreamUrl = "http://upstream",
+                        IsEnabled = true,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        Policy = new Application.Applications.DTOs.ApplicationPolicyDto
+                        {
+                            Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                            ApplicationId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                            RequireAuthentication = true,
+                            AllowAnonymousFromTrustedNetworks = false
+                        }
+                    }
+                    : null);
 
         public Task<Application.Applications.DTOs.ApplicationDto> CreateApplicationAsync(Application.Applications.DTOs.CreateApplicationRequest request, CancellationToken cancellationToken = default)
             => throw new NotImplementedException();
@@ -269,6 +289,66 @@ public class GatewayMiddlewareTests
 
         public Task DeleteRuleAsync(Guid id, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task InvokeAsync_Challenge_ReturnsChallengePageAndSetsSessionCookie()
+    {
+        var proxyService = new FakeProxyService();
+        var resolver = new FakeClientIpResolver
+        {
+            Result = new ClientIpResolutionResult
+            {
+                ClientIp = "198.51.100.1",
+                ProxyChain = [],
+                IsTrusted = true
+            }
+        };
+        var options = new GatewayOptions { AdminPathPrefixes = ["/api"] };
+        var applicationPolicyService = new FakeApplicationPolicyService();
+        var accessRequestService = new FakeAccessRequestService
+        {
+            Result = new AccessEvaluationResult
+            {
+                Decision = AccessEvaluationDecision.Challenge,
+                PublicId = "SG-ABC123XYZ"
+            }
+        };
+
+        var middleware = new GatewayMiddleware(
+            _ => Task.CompletedTask,
+            proxyService,
+            resolver,
+            null,
+            applicationPolicyService,
+            CreateAccessControlService(),
+            accessRequestService,
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService(),
+            options,
+            NullLogger<GatewayMiddleware>.Instance);
+
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Request.Path = "/";
+        context.Request.Host = new HostString("protected.example.com");
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.False(proxyService.WasCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Contains("Access approval is required", await ReadResponseBodyAsync(context));
+        Assert.Contains("SG-ABC123XYZ", await ReadResponseBodyAsync(context));
+        Assert.Contains(context.Response.Headers["Set-Cookie"], c => c is not null && c.Contains("sg_session"));
+    }
+
+    private static async Task<string> ReadResponseBodyAsync(HttpContext context)
+    {
+        context.Response.Body.Position = 0;
+        using var reader = new StreamReader(context.Response.Body);
+        return await reader.ReadToEndAsync();
     }
 
     [Fact]
