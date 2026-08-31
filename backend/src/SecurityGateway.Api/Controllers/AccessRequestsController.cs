@@ -8,7 +8,7 @@ using System.Security.Claims;
 namespace SecurityGateway.Api.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/access-requests")]
 public class AccessRequestsController : ControllerBase
 {
     private readonly IAccessRequestService _accessRequestService;
