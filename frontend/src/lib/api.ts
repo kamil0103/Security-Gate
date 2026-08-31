@@ -761,3 +761,65 @@ export async function isIpBlocked(ipAddress: string): Promise<{ ipAddress: strin
 
   return response.json()
 }
+
+export type AuditCategory =
+  | 'Authentication'
+  | 'Authorization'
+  | 'AccessControl'
+  | 'Blocking'
+  | 'Application'
+  | 'RateLimiting'
+  | 'Waf'
+  | 'ThreatDetection'
+  | 'Notification'
+  | 'System'
+
+export interface AuditLog {
+  id: string
+  timestamp: string
+  category: AuditCategory
+  action: string
+  userId?: string
+  username?: string
+  ipAddress?: string
+  details?: string
+  success: boolean
+}
+
+export interface AuditSearchResult {
+  total: number
+  skip: number
+  take: number
+  logs: AuditLog[]
+}
+
+export async function searchAuditLogs(options: {
+  category?: AuditCategory
+  action?: string
+  username?: string
+  ipAddress?: string
+  success?: boolean
+  from?: string
+  to?: string
+  skip?: number
+  take?: number
+}): Promise<AuditSearchResult> {
+  const params = new URLSearchParams()
+  if (options.category) params.set('Category', options.category)
+  if (options.action) params.set('Action', options.action)
+  if (options.username) params.set('Username', options.username)
+  if (options.ipAddress) params.set('IpAddress', options.ipAddress)
+  if (options.success !== undefined) params.set('Success', options.success.toString())
+  if (options.from) params.set('From', options.from)
+  if (options.to) params.set('To', options.to)
+  params.set('Skip', (options.skip ?? 0).toString())
+  params.set('Take', (options.take ?? 50).toString())
+
+  const response = await authFetch(`${API_BASE_URL}/api/audit?${params}`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load audit logs: ${response.status}`)
+  }
+
+  return response.json()
+}

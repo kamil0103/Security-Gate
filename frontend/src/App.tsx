@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { RequireAuth } from './components/RequireAuth'
 import { ApplicationsPage } from './pages/ApplicationsPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
+import { AuditPage } from './pages/AuditPage'
 import { BlockIpPage } from './pages/BlockIpPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DevicesPage } from './pages/DevicesPage'
@@ -74,6 +75,9 @@ function Layout() {
           </Link>
           <Link className="nav-link" to="/block-ip">
             Block
+          </Link>
+          <Link className="nav-link" to="/audit">
+            Audit
           </Link>
           <Link className="nav-link" to="/map">
             Map
@@ -150,6 +154,14 @@ function Layout() {
           element={
             <RequireAuth>
               <BlockIpPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/audit"
+          element={
+            <RequireAuth>
+              <AuditPage />
             </RequireAuth>
           }
         />
