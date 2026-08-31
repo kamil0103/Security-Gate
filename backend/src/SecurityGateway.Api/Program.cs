@@ -7,6 +7,7 @@ using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.Health;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Applications;
+using SecurityGateway.Application.Audit;
 using SecurityGateway.Application.Blocking;
 using SecurityGateway.Application.Dashboard;
 using SecurityGateway.Application.Identity;
@@ -29,6 +30,8 @@ using SecurityGateway.Infrastructure.AccessControl.Repositories;
 using SecurityGateway.Infrastructure.AccessControl.Services;
 using SecurityGateway.Infrastructure.Applications.Repositories;
 using SecurityGateway.Infrastructure.Applications.Services;
+using SecurityGateway.Infrastructure.Audit.Repositories;
+using SecurityGateway.Infrastructure.Audit.Services;
 using SecurityGateway.Infrastructure.Blocking.Services;
 using SecurityGateway.Infrastructure.Dashboard.Services;
 using SecurityGateway.Infrastructure.Map.Services;
@@ -131,6 +134,10 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 
 // Map service
 builder.Services.AddScoped<IMapService, MapService>();
+
+// Audit service
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 // Notification repositories and service
 builder.Services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();

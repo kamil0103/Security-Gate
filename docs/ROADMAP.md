@@ -194,11 +194,21 @@
 
 **Milestone:** Administrators can configure multiple notification channels and receive alerts for high-severity security events.
 
-## Phase 15 — Audit
+## Phase 15 — Audit ✅
 
-- Audit logging
-- Search and filtering
-- Security history
+- `AuditLog` entity with category, action, user, IP address, details, and success status
+- `IAuditService` and `AuditService` for writing and searching audit logs
+- `AuditController` with admin-only search endpoint and filters:
+  - category, action, username, IP address, success, date range
+  - pagination via skip/take and total count
+- Audit logging integrated into:
+  - Authentication: register, login success/failure, logout, password change
+  - Access control: trusted network create/update/delete, blocklist create/update/delete
+  - Blocking: IP block and unblock
+  - Notifications: channel create/update/delete
+- EF Core migration `AddAuditLog`
+
+**Milestone:** The gateway records a searchable audit trail of security-relevant administrative and authentication actions.
 
 ## Phase 16 — Production Hardening
 

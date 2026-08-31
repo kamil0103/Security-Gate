@@ -8,6 +8,7 @@ using SecurityGateway.Infrastructure.AccessControl.Services;
 using SecurityGateway.Infrastructure.Identity;
 using SecurityGateway.Infrastructure.Persistence;
 using SecurityGateway.Infrastructure.Persistence.Repositories;
+using SecurityGateway.Tests.Helpers;
 using SecurityGateway.Tests.TestHelpers;
 using Xunit;
 
@@ -53,6 +54,7 @@ public class AuthenticationServiceTests : IDisposable
             accessDecisionRepository,
             deviceRepository,
             new FakeThreatDetectionService(),
+            new FakeAuditService(),
             _context);
 
         _service = new AuthenticationService(
@@ -65,6 +67,7 @@ public class AuthenticationServiceTests : IDisposable
             passwordHasher,
             tokenService,
             _emailService,
+            new FakeAuditService(),
             _context,
             jwtOptions);
     }

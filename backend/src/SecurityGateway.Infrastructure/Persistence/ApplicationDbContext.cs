@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Domain.AccessControl;
+using SecurityGateway.Domain.Audit;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Domain.IpIntelligence;
 using SecurityGateway.Domain.Notifications;
@@ -39,6 +40,7 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
     public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -242,6 +244,19 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.Property(e => e.ChannelType).HasConversion<string>().HasMaxLength(32);
             entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(16);
             entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.Action);
+            entity.Property(e => e.Category).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.Action).HasMaxLength(200);
+            entity.Property(e => e.Username).HasMaxLength(100);
+            entity.Property(e => e.IpAddress).HasMaxLength(64);
+            entity.Property(e => e.Details).HasMaxLength(2000);
         });
     }
 }

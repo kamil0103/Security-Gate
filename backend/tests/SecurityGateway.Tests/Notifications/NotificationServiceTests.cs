@@ -8,6 +8,7 @@ using SecurityGateway.Infrastructure.Notifications.Providers;
 using SecurityGateway.Infrastructure.Notifications.Repositories;
 using SecurityGateway.Infrastructure.Notifications.Services;
 using SecurityGateway.Infrastructure.Persistence;
+using SecurityGateway.Tests.Helpers;
 using Xunit;
 
 namespace SecurityGateway.Tests.Notifications;
@@ -37,6 +38,7 @@ public class NotificationServiceTests : IDisposable
             new NotificationChannelRepository(_context),
             new NotificationLogRepository(_context),
             providers,
+            new FakeAuditService(),
             _context);
     }
 

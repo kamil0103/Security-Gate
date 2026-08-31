@@ -1,9 +1,11 @@
 using System.Security.Cryptography;
 using System.Text;
 using SecurityGateway.Application.AccessControl;
+using SecurityGateway.Application.Audit;
 using SecurityGateway.Application.Identity.DTOs;
 using SecurityGateway.Application.ThreatDetection;
 using SecurityGateway.Application.ThreatDetection.DTOs;
+using SecurityGateway.Domain.Audit;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Domain.ThreatDetection;
 
@@ -20,6 +22,7 @@ public sealed class AuthenticationService : IAuthenticationService
     private readonly IPasswordHasher _passwordHasher;
     private readonly ITokenService _tokenService;
     private readonly IEmailService _emailService;
+    private readonly IAuditService _auditService;
     private readonly IUnitOfWork _unitOfWork;
     private readonly JwtOptions _jwtOptions;
 
@@ -33,6 +36,7 @@ public sealed class AuthenticationService : IAuthenticationService
         IPasswordHasher passwordHasher,
         ITokenService tokenService,
         IEmailService emailService,
+        IAuditService auditService,
         IUnitOfWork unitOfWork,
         JwtOptions jwtOptions)
     {
@@ -45,6 +49,7 @@ public sealed class AuthenticationService : IAuthenticationService
         _passwordHasher = passwordHasher;
         _tokenService = tokenService;
         _emailService = emailService;
+        _auditService = auditService;
         _unitOfWork = unitOfWork;
         _jwtOptions = jwtOptions;
     }
@@ -95,6 +100,16 @@ public sealed class AuthenticationService : IAuthenticationService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.Authentication,
+            "Register",
+            user.Id,
+            user.Username,
+            ipAddress,
+            $"User registered with email {user.Email}",
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return await CreateLoginResponseAsync(user, deviceRequest, ipAddress, userAgent, cancellationToken).ConfigureAwait(false);
     }
 
@@ -106,6 +121,15 @@ public sealed class AuthenticationService : IAuthenticationService
         if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
         {
             await RecordAuthenticationFailureAsync(request.UsernameOrEmail, ipAddress ?? "unknown", cancellationToken).ConfigureAwait(false);
+            await _auditService.LogAsync(
+                AuditCategory.Authentication,
+                "LoginFailed",
+                null,
+                request.UsernameOrEmail,
+                ipAddress,
+                "Invalid credentials",
+                false,
+                cancellationToken).ConfigureAwait(false);
             throw new AuthenticationException("Invalid credentials.");
         }
 
@@ -124,6 +148,16 @@ public sealed class AuthenticationService : IAuthenticationService
         await _userRepository.UpdateAsync(user, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.Authentication,
+            "Login",
+            user.Id,
+            user.Username,
+            ipAddress,
+            "User logged in successfully",
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return await CreateLoginResponseAsync(user, deviceRequest, ipAddress, userAgent, cancellationToken).ConfigureAwait(false);
     }
 
@@ -137,6 +171,16 @@ public sealed class AuthenticationService : IAuthenticationService
             session.RevokedAt = DateTimeOffset.UtcNow;
             await _sessionRepository.UpdateAsync(session, cancellationToken).ConfigureAwait(false);
             await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+            await _auditService.LogAsync(
+                AuditCategory.Authentication,
+                "Logout",
+                session.UserId,
+                null,
+                session.IpAddress,
+                "User logged out",
+                true,
+                cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -182,6 +226,16 @@ public sealed class AuthenticationService : IAuthenticationService
         await _userRepository.UpdateAsync(user, cancellationToken).ConfigureAwait(false);
         await _sessionRepository.RevokeAllUserSessionsAsync(userId, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        await _auditService.LogAsync(
+            AuditCategory.Authentication,
+            "ChangePassword",
+            user.Id,
+            user.Username,
+            null,
+            "Password changed",
+            true,
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task ForgotPasswordAsync(ForgotPasswordRequest request, CancellationToken cancellationToken = default)

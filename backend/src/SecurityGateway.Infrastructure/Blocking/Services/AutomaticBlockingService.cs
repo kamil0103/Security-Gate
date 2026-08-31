@@ -1,9 +1,11 @@
 using SecurityGateway.Application.AccessControl;
+using SecurityGateway.Application.Audit;
 using SecurityGateway.Application.Blocking;
 using SecurityGateway.Application.Blocking.DTOs;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Domain.AccessControl;
+using SecurityGateway.Domain.Audit;
 
 namespace SecurityGateway.Infrastructure.Blocking.Services;
 
@@ -13,17 +15,20 @@ public sealed class AutomaticBlockingService : IAutomaticBlockingService
     private readonly IIpAddressRepository _ipAddressRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly AutomaticBlockingOptions _options;
+    private readonly IAuditService _auditService;
 
     public AutomaticBlockingService(
         IBlocklistRepository blocklistRepository,
         IIpAddressRepository ipAddressRepository,
         IUnitOfWork unitOfWork,
-        AutomaticBlockingOptions options)
+        AutomaticBlockingOptions options,
+        IAuditService auditService)
     {
         _blocklistRepository = blocklistRepository;
         _ipAddressRepository = ipAddressRepository;
         _unitOfWork = unitOfWork;
         _options = options;
+        _auditService = auditService;
     }
 
     public async Task<BlockResultDto?> CheckAndBlockAsync(string ipAddress, int? threatScore = null, CancellationToken cancellationToken = default)
@@ -96,6 +101,16 @@ public sealed class AutomaticBlockingService : IAutomaticBlockingService
 
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.Blocking,
+            durationMinutes.HasValue ? "BlockIp" : "PermanentlyBlockIp",
+            null,
+            null,
+            ipAddress,
+            reason,
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return new BlockResultDto
         {
             Blocked = true,
@@ -116,6 +131,16 @@ public sealed class AutomaticBlockingService : IAutomaticBlockingService
 
         await _blocklistRepository.DeleteAsync(existing, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        await _auditService.LogAsync(
+            AuditCategory.Blocking,
+            "UnblockIp",
+            null,
+            null,
+            ipAddress,
+            "IP manually unblocked",
+            true,
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<bool> IsBlockedAsync(string ipAddress, CancellationToken cancellationToken = default)
