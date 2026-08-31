@@ -62,6 +62,13 @@ public sealed class GatewayMiddleware
     {
         var path = context.Request.Path.Value ?? "/";
 
+        if (path.Equals("/api/health", StringComparison.OrdinalIgnoreCase) ||
+            path.Equals("/health", StringComparison.OrdinalIgnoreCase))
+        {
+            await _next(context).ConfigureAwait(false);
+            return;
+        }
+
         if (IsAdminPath(context.Request.Host.Host, path))
         {
             await _next(context).ConfigureAwait(false);
