@@ -2,12 +2,16 @@ import { Link, Route, Routes, useNavigate } from 'react-router-dom'
 import './styles.css'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { RequireAuth } from './components/RequireAuth'
+import { ApplicationsPage } from './pages/ApplicationsPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { DevicesPage } from './pages/DevicesPage'
 import { HealthPage } from './pages/HealthPage'
 import { IpExplorerPage } from './pages/IpExplorerPage'
 import { LoginPage } from './pages/LoginPage'
 import { MapPage } from './pages/MapPage'
+import { NotificationsPage } from './pages/NotificationsPage'
+import { TrustedNetworksPage } from './pages/TrustedNetworksPage'
 
 function Header() {
   const { user, logout } = useAuth()
@@ -51,6 +55,18 @@ function Layout() {
           <Link className="nav-link" to="/approvals">
             Approvals
           </Link>
+          <Link className="nav-link" to="/applications">
+            Apps
+          </Link>
+          <Link className="nav-link" to="/trusted-networks">
+            Networks
+          </Link>
+          <Link className="nav-link" to="/devices">
+            Devices
+          </Link>
+          <Link className="nav-link" to="/notifications">
+            Alerts
+          </Link>
           <Link className="nav-link" to="/map">
             Map
           </Link>
@@ -78,6 +94,38 @@ function Layout() {
           element={
             <RequireAuth>
               <ApprovalsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/applications"
+          element={
+            <RequireAuth>
+              <ApplicationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/trusted-networks"
+          element={
+            <RequireAuth>
+              <TrustedNetworksPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/devices"
+          element={
+            <RequireAuth>
+              <DevicesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <RequireAuth>
+              <NotificationsPage />
             </RequireAuth>
           }
         />

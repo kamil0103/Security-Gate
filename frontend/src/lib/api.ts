@@ -317,3 +317,337 @@ export async function resolveAccessRequest(
 
   return response.json()
 }
+
+export interface Application {
+  id: string
+  name: string
+  domain: string
+  upstreamUrl: string
+  isEnabled: boolean
+  createdAt: string
+  policy?: ApplicationPolicy
+}
+
+export interface ApplicationPolicy {
+  id: string
+  applicationId: string
+  requireAuthentication: boolean
+  allowAnonymousFromTrustedNetworks: boolean
+  allowedCountries: string
+  blockedCountries: string
+  allowedIpAddresses: string
+  blockedIpAddresses: string
+  allowedCloudflareCountries: string
+  blockedCloudflareCountries: string
+  bypassAuthenticationPaths: string
+}
+
+export interface CreateApplicationRequest {
+  name: string
+  domain: string
+  upstreamUrl: string
+}
+
+export interface UpdateApplicationRequest {
+  name: string
+  domain: string
+  upstreamUrl: string
+  isEnabled: boolean
+}
+
+export async function fetchApplications(): Promise<Application[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/applications`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load applications: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function createApplication(request: CreateApplicationRequest): Promise<Application> {
+  const response = await authFetch(`${API_BASE_URL}/api/applications`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to create application: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function updateApplication(
+  id: string,
+  request: UpdateApplicationRequest
+): Promise<Application> {
+  const response = await authFetch(`${API_BASE_URL}/api/applications/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to update application: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function deleteApplication(id: string): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/applications/${id}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete application: ${response.status}`)
+  }
+}
+
+export async function fetchApplicationPolicy(applicationId: string): Promise<ApplicationPolicy | null> {
+  const response = await authFetch(`${API_BASE_URL}/api/applications/${applicationId}/policy`)
+
+  if (response.status === 404) {
+    return null
+  }
+
+  if (!response.ok) {
+    throw new Error(`Failed to load policy: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function updateApplicationPolicy(
+  applicationId: string,
+  request: Omit<ApplicationPolicy, 'id' | 'applicationId'>
+): Promise<ApplicationPolicy> {
+  const response = await authFetch(`${API_BASE_URL}/api/applications/${applicationId}/policy`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to update policy: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export interface TrustedNetwork {
+  id: string
+  name: string
+  cidr: string
+  description?: string
+  isEnabled: boolean
+  createdAt: string
+}
+
+export interface CreateTrustedNetworkRequest {
+  name: string
+  cidr: string
+  description?: string
+}
+
+export async function fetchTrustedNetworks(): Promise<TrustedNetwork[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/access-control/trusted-networks`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load trusted networks: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function createTrustedNetwork(request: CreateTrustedNetworkRequest): Promise<TrustedNetwork> {
+  const response = await authFetch(`${API_BASE_URL}/api/access-control/trusted-networks`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to create trusted network: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function updateTrustedNetwork(
+  id: string,
+  request: CreateTrustedNetworkRequest & { isEnabled: boolean }
+): Promise<TrustedNetwork> {
+  const response = await authFetch(`${API_BASE_URL}/api/access-control/trusted-networks/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to update trusted network: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function deleteTrustedNetwork(id: string): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/access-control/trusted-networks/${id}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete trusted network: ${response.status}`)
+  }
+}
+
+export interface Device {
+  id: string
+  userId: string
+  name: string
+  fingerprint: string
+  userAgent?: string
+  operatingSystem?: string
+  browser?: string
+  trustStatus: 'Pending' | 'Trusted' | 'Untrusted' | 'Blocked'
+  createdAt: string
+  lastSeenAt: string
+}
+
+export async function fetchMyDevices(): Promise<Device[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/devices`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load devices: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function trustDevice(deviceId: string): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/devices/${deviceId}/trust`, {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to trust device: ${response.status}`)
+  }
+}
+
+export async function untrustDevice(deviceId: string): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/devices/${deviceId}/untrust`, {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to untrust device: ${response.status}`)
+  }
+}
+
+export async function blockDevice(deviceId: string): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/devices/${deviceId}/block`, {
+    method: 'POST',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to block device: ${response.status}`)
+  }
+}
+
+export async function removeDevice(deviceId: string): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/devices/${deviceId}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to remove device: ${response.status}`)
+  }
+}
+
+export type NotificationChannelType = 'Email' | 'Telegram' | 'Discord' | 'Ntfy' | 'WebPush'
+
+export interface NotificationChannel {
+  id: string
+  name: string
+  type: NotificationChannelType
+  isEnabled: boolean
+  configuration: string
+}
+
+export interface CreateNotificationChannelRequest {
+  name: string
+  type: NotificationChannelType
+  isEnabled: boolean
+  configuration: string
+}
+
+export async function fetchNotificationChannels(): Promise<NotificationChannel[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/notifications/channels`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load notification channels: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function createNotificationChannel(
+  request: CreateNotificationChannelRequest
+): Promise<NotificationChannel> {
+  const response = await authFetch(`${API_BASE_URL}/api/notifications/channels`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to create notification channel: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function updateNotificationChannel(
+  id: string,
+  request: CreateNotificationChannelRequest
+): Promise<NotificationChannel> {
+  const response = await authFetch(`${API_BASE_URL}/api/notifications/channels/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to update notification channel: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function deleteNotificationChannel(id: string): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/notifications/channels/${id}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to delete notification channel: ${response.status}`)
+  }
+}
+
+export async function testNotificationChannel(
+  id: string,
+  subject: string,
+  body: string
+): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/notifications/channels/${id}/test`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subject, body }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to send test notification: ${response.status}`)
+  }
+}
