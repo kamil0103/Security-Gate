@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import App from './App'
@@ -22,10 +22,8 @@ const mockOverview = {
   totalUsers: 0,
 }
 
-const mockEmpty = { json: async () => [] }
-
 describe('App', () => {
-  it('renders the dashboard by default', async () => {
+  beforeEach(() => {
     vi.spyOn(global, 'fetch').mockImplementation((url) => {
       const path = url.toString()
 
@@ -39,7 +37,13 @@ describe('App', () => {
 
       return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }))
     })
+  })
 
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('renders the dashboard by default', async () => {
     render(
       <MemoryRouter initialEntries={['/']}>
         <App />
@@ -51,16 +55,6 @@ describe('App', () => {
   })
 
   it('renders the health page at /health', async () => {
-    vi.spyOn(global, 'fetch').mockImplementation((url) => {
-      const path = url.toString()
-
-      if (path.includes('/api/health')) {
-        return Promise.resolve(new Response(JSON.stringify(mockHealth), { status: 200 }))
-      }
-
-      return Promise.resolve(mockEmpty as unknown as Response)
-    })
-
     render(
       <MemoryRouter initialEntries={['/health']}>
         <App />
@@ -68,5 +62,25 @@ describe('App', () => {
     )
 
     await waitFor(() => expect(screen.getByText('Development Environment Status')).toBeInTheDocument())
+  })
+
+  it('renders the map page at /map', async () => {
+    render(
+      <MemoryRouter initialEntries={['/map']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => expect(screen.getByText('Global Security Map')).toBeInTheDocument())
+  })
+
+  it('renders the IP explorer page at /ip-explorer', async () => {
+    render(
+      <MemoryRouter initialEntries={['/ip-explorer']}>
+        <App />
+      </MemoryRouter>
+    )
+
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'IP Explorer' })).toBeInTheDocument())
   })
 })

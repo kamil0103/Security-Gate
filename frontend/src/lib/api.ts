@@ -133,3 +133,109 @@ export async function fetchTimeline(from: Date, to: Date, limit = 50): Promise<R
 
   return response.json()
 }
+
+export interface MapPoint {
+  ipAddress: string
+  latitude: number
+  longitude: number
+  country: string | null
+  countryCode: string | null
+  city: string | null
+  threatScore: number
+  requestCount: number
+  attackCount: number
+  lastSeenAt: string
+}
+
+export interface MapFilter {
+  from?: Date
+  to?: Date
+  countryCode?: string
+  minThreatScore?: number
+  hasAttacks?: boolean
+  isBlocked?: boolean
+  limit?: number
+}
+
+export async function fetchMapPoints(filter: MapFilter = {}): Promise<MapPoint[]> {
+  const params = new URLSearchParams()
+
+  if (filter.from) params.set('from', filter.from.toISOString())
+  if (filter.to) params.set('to', filter.to.toISOString())
+  if (filter.countryCode) params.set('countryCode', filter.countryCode)
+  if (filter.minThreatScore !== undefined) params.set('minThreatScore', filter.minThreatScore.toString())
+  if (filter.hasAttacks !== undefined) params.set('hasAttacks', filter.hasAttacks.toString())
+  if (filter.isBlocked !== undefined) params.set('isBlocked', filter.isBlocked.toString())
+  if (filter.limit !== undefined) params.set('limit', filter.limit.toString())
+
+  const response = await fetch(`${API_BASE_URL}/api/map/points?${params}`)
+
+  if (!response.ok) {
+    throw new Error(`Map points failed: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export async function fetchAttackPoints(filter: MapFilter = {}): Promise<MapPoint[]> {
+  const params = new URLSearchParams()
+
+  if (filter.from) params.set('from', filter.from.toISOString())
+  if (filter.to) params.set('to', filter.to.toISOString())
+  if (filter.countryCode) params.set('countryCode', filter.countryCode)
+  if (filter.minThreatScore !== undefined) params.set('minThreatScore', filter.minThreatScore.toString())
+  if (filter.isBlocked !== undefined) params.set('isBlocked', filter.isBlocked.toString())
+  if (filter.limit !== undefined) params.set('limit', filter.limit.toString())
+
+  const response = await fetch(`${API_BASE_URL}/api/map/attacks?${params}`)
+
+  if (!response.ok) {
+    throw new Error(`Attack points failed: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export interface IpDetails {
+  ipAddress: string
+  country: string | null
+  countryCode: string | null
+  region: string | null
+  city: string | null
+  latitude: number | null
+  longitude: number | null
+  isp: string | null
+  organization: string | null
+  asn: string | null
+  isVpn: boolean
+  isProxy: boolean
+  isTor: boolean
+  isDatacenter: boolean
+  threatScore: number
+  threatLevel: string | null
+  requestCount: number
+  attackCount: number
+  blockCount: number
+  firstSeenAt: string
+  lastSeenAt: string
+}
+
+export async function fetchIpDetails(ipAddress: string): Promise<IpDetails> {
+  const response = await fetch(`${API_BASE_URL}/api/map/ip/${encodeURIComponent(ipAddress)}`)
+
+  if (!response.ok) {
+    throw new Error(`IP details failed: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
+}
+
+export async function fetchMapCountries(): Promise<string[]> {
+  const response = await fetch(`${API_BASE_URL}/api/map/countries`)
+
+  if (!response.ok) {
+    throw new Error(`Countries failed: ${response.status} ${response.statusText}`)
+  }
+
+  return response.json()
+}

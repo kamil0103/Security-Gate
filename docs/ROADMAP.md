@@ -165,12 +165,17 @@
 
 **Milestone:** Administrators have a visual security dashboard with statistics, charts, real-time event feed, and timeline.
 
-## Phase 13 — Global Map
+## Phase 13 — Global Map ✅
 
-- GeoIP visualization
-- Attack visualization
-- IP explorer
-- Filters
+- `IMapService` and `MapController` for GeoIP-enabled IP data
+- Endpoints: map points, attack points, IP details, country list
+- Filters: date range, country code, minimum threat score, attacks only, blocked only
+- React map page using `leaflet` with OpenStreetMap tiles
+- Threat markers colored by score and attack markers with popups
+- IP explorer page for searching and viewing detailed IP intelligence
+- Admin-only map and IP explorer endpoints
+
+**Milestone:** Administrators can visualize threats and attacks on a world map and inspect detailed GeoIP and reputation data for any IP.
 
 ## Phase 14 — Notifications
 
