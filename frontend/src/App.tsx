@@ -2,6 +2,7 @@ import { Link, Route, Routes, useNavigate } from 'react-router-dom'
 import './styles.css'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { RequireAuth } from './components/RequireAuth'
+import { ApprovalsPage } from './pages/ApprovalsPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { HealthPage } from './pages/HealthPage'
 import { IpExplorerPage } from './pages/IpExplorerPage'
@@ -47,6 +48,9 @@ function Layout() {
           <Link className="nav-link" to="/">
             Dashboard
           </Link>
+          <Link className="nav-link" to="/approvals">
+            Approvals
+          </Link>
           <Link className="nav-link" to="/map">
             Map
           </Link>
@@ -66,6 +70,14 @@ function Layout() {
           element={
             <RequireAuth>
               <DashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/approvals"
+          element={
+            <RequireAuth>
+              <ApprovalsPage />
             </RequireAuth>
           }
         />

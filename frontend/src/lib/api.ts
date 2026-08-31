@@ -241,3 +241,79 @@ export async function fetchMapCountries(): Promise<string[]> {
 
   return response.json()
 }
+
+export interface AccessRequest {
+  id: string
+  publicId: string
+  status: string
+  createdAt: string
+  expiresAt: string
+  resolvedAt?: string
+  resolutionReason?: string
+  applicationId: string
+  applicationName: string
+  applicationDomain: string
+  httpMethod: string
+  requestedPath: string
+  clientIp: string
+  country?: string
+  countryCode?: string
+  region?: string
+  city?: string
+  isp?: string
+  asn?: string
+  isVpn: boolean
+  isProxy: boolean
+  isTor: boolean
+  isDatacenter: boolean
+  threatScore: number
+  threatLevel?: string
+  requestCount: number
+  deviceFingerprint?: string
+  deviceName?: string
+  deviceId?: string
+  sessionId?: string
+  userAgent?: string
+  browser?: string
+  operatingSystem?: string
+  userId?: string
+  username?: string
+  reasonForChallenge: string
+  reviewedByUserId?: string
+  reviewedByUsername?: string
+  decision?: string
+  approvalScope?: string
+}
+
+export async function fetchPendingAccessRequests(): Promise<AccessRequest[]> {
+  const response = await authFetch(`${API_BASE_URL}/api/access-requests/pending`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load pending access requests: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export interface ResolveAccessRequestRequest {
+  decision: 'Approve' | 'Deny' | 'BlockIp' | 'BlockDevice'
+  approvalScope?: 'Once' | 'Session' | 'Device' | 'IpAndDevice' | 'Ip' | 'Permanent'
+  reason?: string
+}
+
+export async function resolveAccessRequest(
+  id: string,
+  request: ResolveAccessRequestRequest
+): Promise<AccessRequest> {
+  const response = await authFetch(`${API_BASE_URL}/api/access-requests/${id}/resolve`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to resolve access request: ${response.status}`)
+  }
+
+  return response.json()
+}
