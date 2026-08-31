@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/cloudflare
+      - feature/access-approval
     tags:
       - 'v*'
   workflow_dispatch:
