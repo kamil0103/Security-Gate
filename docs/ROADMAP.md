@@ -297,3 +297,53 @@
 - `docker-compose.yml` updated to expose InlineWaf settings and remove frontend `user: root`
 
 **Milestone:** Administrators can manage applications, devices, networks, notifications, events, blocks, and audit logs from the UI; each app can declare a Cloudflare mode; and the gateway blocks common web attacks inline while logging them as WAF events.
+
+## Phase 21 — WebAuthn / Passkey Authentication
+
+- Replace `IWebAuthnService` stub with a FIDO2 implementation (e.g., `Fido2` library)
+- Server-side credential registration ceremony with challenge generation and attestation verification
+- Server-side authentication/assertion ceremony with signature verification and sign-count replay protection
+- Extend `WebAuthnCredential` entity with attestation, transports, `IsBackupEligible`, and `IsBackupDevice`
+- Add `WebAuthnController` endpoints for registration options, register, assertion options, and assert
+- React passkey registration and login UI flows
+- Admin page to view and revoke user credentials
+- Prefer passkeys over passwords; allow passwordless + MFA combinations
+- EF Core migration `ExtendWebAuthnCredentials`
+
+**Milestone:** Users can register and authenticate with platform/roaming passkeys, and administrators can manage credentials.
+
+## Phase 22 — CrowdSec Local API Integration
+
+- Implement `ICrowdSecClient` against the CrowdSec Local API (`/v1/decisions`, `/v1/alerts`)
+- Background decision-sync worker that polls for new bans/unbans and applies them to the blocklist
+- Report high-confidence gateway observations (brute force, WAF blocks, behavioral anomalies) as CrowdSec alerts
+- Configurable `CrowdSecOptions`: base URL, API key, TLS, scopes, enable/disable
+- Treat CrowdSec decisions as an additional IP reputation source in threat scoring
+- Security events/alerts for CrowdSec sync actions
+- Integration tests with a CrowdSec testcontainer or a fake local API
+
+**Milestone:** Security Gateway consumes CrowdSec decisions and contributes observations, tightening shared threat intelligence.
+
+## Phase 23 — OIDC / SSO Authentication
+
+- Add ASP.NET Core OpenID Connect authentication scheme
+- `IdentityProvider` entity with name, authority, client ID/secret, scopes, and claim mappings
+- `IdentityProvidersController` for admin CRUD
+- Login UI with "Sign in with ..." options
+- Link external identities to local users or enable JIT provisioning
+- Map external claims to `UserRole`, email verification, and session device
+- Support domain-restricted providers (e.g., only allow a specific email domain)
+
+**Milestone:** Users can authenticate through external OIDC providers, and administrators can configure providers from the dashboard.
+
+## Phase 24 — API Keys & Service Accounts
+
+- `ServiceAccount` and `ApiKey` domain entities with hashed key secrets and expiration
+- API key authentication handler/middleware (Bearer or custom header scheme)
+- Scoped permissions: per-application read/write or global admin
+- `ServiceAccountsController` for admin CRUD and key rotation
+- React service-account management page
+- Audit logging for all API-key authentication and authorization actions
+- Rate limiting applies separately to API-key traffic
+
+**Milestone:** Automated clients and integrations authenticate with scoped, auditable API keys.
