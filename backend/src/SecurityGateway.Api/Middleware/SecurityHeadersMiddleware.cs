@@ -19,7 +19,7 @@ public sealed class SecurityHeadersMiddleware
         headers.XFrameOptions = "DENY";
         headers.XXSSProtection = "1; mode=block";
         headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
-        headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' https:; img-src 'self' data: https:; connect-src 'self' https:; media-src 'self' https:; frame-src 'self' https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self';";
+        headers["Content-Security-Policy"] = "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:; frame-ancestors 'none';";
         headers["Permissions-Policy"] = "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=()";
 
         await _next(context).ConfigureAwait(false);
