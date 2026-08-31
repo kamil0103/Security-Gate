@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace SecurityGateway.Domain.Identity;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum DeviceTrustStatus
 {
     Pending = 0,

@@ -1,7 +1,16 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using SecurityGateway.Api.Middleware;
+using SecurityGateway.Application.AccessControl;
+using SecurityGateway.Application.AccessControl.Models;
+using SecurityGateway.Application.Applications;
+using SecurityGateway.Application.Audit;
+using SecurityGateway.Application.Blocking;
+using SecurityGateway.Application.Blocking.DTOs;
 using SecurityGateway.Application.Gateway;
+using SecurityGateway.Application.IpIntelligence;
+using SecurityGateway.Application.RateLimiting;
+using SecurityGateway.Application.RateLimiting.Models;
 using Xunit;
 
 namespace SecurityGateway.Tests.Gateway;
@@ -20,6 +29,13 @@ public class GatewayMiddlewareTests
             _ => { nextInvoked = true; return Task.CompletedTask; },
             proxyService,
             resolver,
+            null,
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
+            CreateAccessRequestService(),
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -43,6 +59,13 @@ public class GatewayMiddlewareTests
             _ => Task.CompletedTask,
             proxyService,
             resolver,
+            null,
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
+            CreateAccessRequestService(),
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -65,11 +88,13 @@ public class GatewayMiddlewareTests
     {
         public bool WasCalled { get; private set; }
         public ProxyRequestContext? LastRequest { get; private set; }
+        public string? LastUpstreamUrl { get; private set; }
 
-        public Task<ProxyResponse> ForwardAsync(ProxyRequestContext request, CancellationToken cancellationToken = default)
+        public Task<ProxyResponse> ForwardAsync(ProxyRequestContext request, string? upstreamUrl = null, CancellationToken cancellationToken = default)
         {
             WasCalled = true;
             LastRequest = request;
+            LastUpstreamUrl = upstreamUrl;
 
             return Task.FromResult(new ProxyResponse
             {
@@ -90,5 +115,293 @@ public class GatewayMiddlewareTests
         };
 
         public ClientIpResolutionResult Resolve(ClientIpContext context) => Result;
+    }
+
+    private static IApplicationPolicyService CreateApplicationPolicyService()
+    {
+        return new FakeApplicationPolicyService();
+    }
+
+    private static IAccessControlService CreateAccessControlService()
+    {
+        return new FakeAccessControlService();
+    }
+
+    private static IRateLimitService CreateRateLimitService()
+    {
+        return new FakeRateLimitService();
+    }
+
+    private static IAutomaticBlockingService CreateAutomaticBlockingService()
+    {
+        return new FakeAutomaticBlockingService();
+    }
+
+    private static IAccessRequestService CreateAccessRequestService()
+    {
+        return new FakeAccessRequestService();
+    }
+
+    private static IAuditService CreateAuditService()
+    {
+        return new FakeAuditService();
+    }
+
+    private sealed class FakeAccessRequestService : IAccessRequestService
+    {
+        public AccessEvaluationResult Result { get; set; } = new() { Decision = AccessEvaluationDecision.Allow };
+
+        public Task<AccessEvaluationResult> EvaluateAccessAsync(AccessEvaluationContext context, CancellationToken cancellationToken = default)
+            => Task.FromResult(Result);
+
+        public Task<Application.AccessControl.DTOs.AccessRequestDto?> GetByPublicIdAsync(string publicId, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.AccessControl.DTOs.AccessRequestDto?>(null);
+
+        public Task<Application.AccessControl.DTOs.AccessRequestStatusDto> GetStatusAsync(string publicId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new Application.AccessControl.DTOs.AccessRequestStatusDto { PublicId = publicId, Status = "Pending", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30) });
+
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.AccessRequestDto>> GetPendingAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.AccessRequestDto>>(Array.Empty<Application.AccessControl.DTOs.AccessRequestDto>());
+
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.AccessRequestDto>> GetRecentAsync(int count, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.AccessRequestDto>>(Array.Empty<Application.AccessControl.DTOs.AccessRequestDto>());
+
+        public Task<Application.AccessControl.DTOs.AccessRequestDto> ResolveAsync(Guid accessRequestId, Guid adminUserId, Application.AccessControl.DTOs.ResolveAccessRequestRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task RevokeTrustAsync(Guid trustRecordId, Guid adminUserId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class FakeAuditService : IAuditService
+    {
+        public Task LogAsync(SecurityGateway.Domain.Audit.AuditCategory category, string action, Guid? userId = null, string? username = null, string? ipAddress = null, string? details = null, bool success = true, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<IReadOnlyList<SecurityGateway.Application.Audit.DTOs.AuditLogDto>> SearchAsync(SecurityGateway.Application.Audit.DTOs.AuditLogFilterRequest filter, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SecurityGateway.Application.Audit.DTOs.AuditLogDto>>(Array.Empty<SecurityGateway.Application.Audit.DTOs.AuditLogDto>());
+
+        public Task<long> CountAsync(SecurityGateway.Application.Audit.DTOs.AuditLogFilterRequest filter, CancellationToken cancellationToken = default)
+            => Task.FromResult(0L);
+    }
+
+    private sealed class FakeApplicationPolicyService : IApplicationPolicyService
+    {
+        public Task<IReadOnlyList<Application.Applications.DTOs.ApplicationDto>> GetApplicationsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Application.Applications.DTOs.ApplicationDto>>(Array.Empty<Application.Applications.DTOs.ApplicationDto>());
+
+        public Task<Application.Applications.DTOs.ApplicationDto?> GetApplicationByIdAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.Applications.DTOs.ApplicationDto?>(null);
+
+        public Task<Application.Applications.DTOs.ApplicationDto?> GetApplicationByDomainAsync(string domain, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.Applications.DTOs.ApplicationDto?>(
+                domain == "protected.example.com"
+                    ? new Application.Applications.DTOs.ApplicationDto
+                    {
+                        Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                        Name = "Protected",
+                        Domain = "protected.example.com",
+                        UpstreamUrl = "http://upstream",
+                        IsEnabled = true,
+                        CreatedAt = DateTimeOffset.UtcNow,
+                        Policy = new Application.Applications.DTOs.ApplicationPolicyDto
+                        {
+                            Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                            ApplicationId = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                            RequireAuthentication = true,
+                            AllowAnonymousFromTrustedNetworks = false
+                        }
+                    }
+                    : null);
+
+        public Task<Application.Applications.DTOs.ApplicationDto> CreateApplicationAsync(Application.Applications.DTOs.CreateApplicationRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Application.Applications.DTOs.ApplicationDto> UpdateApplicationAsync(Guid id, Application.Applications.DTOs.UpdateApplicationRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task DeleteApplicationAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<Application.Applications.DTOs.ApplicationPolicyDto?> GetPolicyAsync(Guid applicationId, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.Applications.DTOs.ApplicationPolicyDto?>(null);
+
+        public Task<Application.Applications.DTOs.ApplicationPolicyDto> UpdatePolicyAsync(Guid applicationId, Application.Applications.DTOs.UpdateApplicationPolicyRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Application.Applications.Models.ApplicationPolicyEvaluation> EvaluatePolicyAsync(Guid applicationId, string ipAddress, bool isAuthenticated, bool isIpTrusted, string? cloudflareCountry = null, string? path = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new Application.Applications.Models.ApplicationPolicyEvaluation
+            {
+                Allowed = true,
+                Reason = null,
+                RequiresAuthentication = false,
+                IsAuthenticated = isAuthenticated
+            });
+    }
+
+    private sealed class FakeAccessControlService : IAccessControlService
+    {
+        public Task<bool> IsIpTrustedAsync(string ipAddress, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<bool> IsBlockedAsync(string ipAddress, Guid? deviceId, Guid? userId, CancellationToken cancellationToken = default) => Task.FromResult(false);
+        public Task<Application.AccessControl.Models.DeviceTrustResult> EvaluateDeviceTrustAsync(Guid userId, Guid deviceId, string ipAddress, CancellationToken cancellationToken = default)
+            => Task.FromResult(new Application.AccessControl.Models.DeviceTrustResult
+            {
+                IsTrusted = true,
+                IsPending = false,
+                IsBlocked = false
+            });
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.TrustedNetworkDto>> GetTrustedNetworksAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.TrustedNetworkDto>>(Array.Empty<Application.AccessControl.DTOs.TrustedNetworkDto>());
+        public Task<Application.AccessControl.DTOs.TrustedNetworkDto?> GetTrustedNetworkByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Application.AccessControl.DTOs.TrustedNetworkDto?>(null);
+        public Task<Application.AccessControl.DTOs.TrustedNetworkDto> CreateTrustedNetworkAsync(Application.AccessControl.DTOs.CreateTrustedNetworkRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Application.AccessControl.DTOs.TrustedNetworkDto> UpdateTrustedNetworkAsync(Guid id, Application.AccessControl.DTOs.UpdateTrustedNetworkRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task DeleteTrustedNetworkAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.BlocklistEntryDto>> GetBlocklistEntriesAsync(CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.BlocklistEntryDto>>(Array.Empty<Application.AccessControl.DTOs.BlocklistEntryDto>());
+        public Task<Application.AccessControl.DTOs.BlocklistEntryDto?> GetBlocklistEntryByIdAsync(Guid id, CancellationToken cancellationToken = default) => Task.FromResult<Application.AccessControl.DTOs.BlocklistEntryDto?>(null);
+        public Task<Application.AccessControl.DTOs.BlocklistEntryDto> CreateBlocklistEntryAsync(Application.AccessControl.DTOs.CreateBlocklistEntryRequest request, Guid? createdByUserId = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Application.AccessControl.DTOs.BlocklistEntryDto> UpdateBlocklistEntryAsync(Guid id, Application.AccessControl.DTOs.CreateBlocklistEntryRequest request, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task DeleteBlocklistEntryAsync(Guid id, CancellationToken cancellationToken = default) => Task.CompletedTask;
+        public Task<Application.AccessControl.DTOs.AccessDecisionDto> ApproveDeviceAsync(Guid deviceId, Guid adminUserId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<Application.AccessControl.DTOs.AccessDecisionDto> DenyDeviceAsync(Guid deviceId, Guid adminUserId, string? reason = null, CancellationToken cancellationToken = default) => throw new NotImplementedException();
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.AccessDecisionDto>> GetDecisionsForTargetAsync(SecurityGateway.Domain.AccessControl.AccessDecisionType type, Guid targetId, CancellationToken cancellationToken = default) => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.AccessDecisionDto>>(Array.Empty<Application.AccessControl.DTOs.AccessDecisionDto>());
+    }
+
+    private sealed class FakeRateLimitService : IRateLimitService
+    {
+        public Task<RateLimitResult> CheckAsync(Application.RateLimiting.Models.RateLimitRequestContext context, CancellationToken cancellationToken = default)
+            => Task.FromResult(new RateLimitResult
+            {
+                Allowed = true,
+                Remaining = int.MaxValue,
+                ResetAt = DateTimeOffset.UtcNow
+            });
+
+        public Task<IReadOnlyList<Application.RateLimiting.DTOs.RateLimitRuleDto>> GetRulesAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Application.RateLimiting.DTOs.RateLimitRuleDto>>(Array.Empty<Application.RateLimiting.DTOs.RateLimitRuleDto>());
+
+        public Task<Application.RateLimiting.DTOs.RateLimitRuleDto?> GetRuleByIdAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.RateLimiting.DTOs.RateLimitRuleDto?>(null);
+
+        public Task<Application.RateLimiting.DTOs.RateLimitRuleDto> CreateRuleAsync(Application.RateLimiting.DTOs.CreateRateLimitRuleRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task<Application.RateLimiting.DTOs.RateLimitRuleDto> UpdateRuleAsync(Guid id, Application.RateLimiting.DTOs.CreateRateLimitRuleRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task DeleteRuleAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task InvokeAsync_Challenge_ReturnsChallengePageAndSetsSessionCookie()
+    {
+        var proxyService = new FakeProxyService();
+        var resolver = new FakeClientIpResolver
+        {
+            Result = new ClientIpResolutionResult
+            {
+                ClientIp = "198.51.100.1",
+                ProxyChain = [],
+                IsTrusted = true
+            }
+        };
+        var options = new GatewayOptions { AdminPathPrefixes = ["/api"] };
+        var applicationPolicyService = new FakeApplicationPolicyService();
+        var accessRequestService = new FakeAccessRequestService
+        {
+            Result = new AccessEvaluationResult
+            {
+                Decision = AccessEvaluationDecision.Challenge,
+                PublicId = "SG-ABC123XYZ"
+            }
+        };
+
+        var middleware = new GatewayMiddleware(
+            _ => Task.CompletedTask,
+            proxyService,
+            resolver,
+            null,
+            applicationPolicyService,
+            CreateAccessControlService(),
+            accessRequestService,
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService(),
+            options,
+            NullLogger<GatewayMiddleware>.Instance);
+
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Request.Path = "/";
+        context.Request.Host = new HostString("protected.example.com");
+        context.Response.Body = new MemoryStream();
+
+        await middleware.InvokeAsync(context);
+
+        Assert.False(proxyService.WasCalled);
+        Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
+        Assert.Contains("Access approval is required", await ReadResponseBodyAsync(context));
+        Assert.Contains("SG-ABC123XYZ", await ReadResponseBodyAsync(context));
+        Assert.Contains(context.Response.Headers["Set-Cookie"], c => c is not null && c.Contains("sg_session"));
+    }
+
+    private static async Task<string> ReadResponseBodyAsync(HttpContext context)
+    {
+        context.Response.Body.Position = 0;
+        using var reader = new StreamReader(context.Response.Body, System.Text.Encoding.UTF8, leaveOpen: true);
+        return await reader.ReadToEndAsync();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_NoUpstreamConfigured_ReturnsBadGateway()
+    {
+        var proxyService = new FakeProxyService();
+        var resolver = new FakeClientIpResolver
+        {
+            Result = new ClientIpResolutionResult
+            {
+                ClientIp = "198.51.100.1",
+                ProxyChain = [],
+                IsTrusted = true
+            }
+        };
+        var options = new GatewayOptions { UpstreamNpmUrl = "" };
+
+        var middleware = new GatewayMiddleware(
+            _ => Task.CompletedTask,
+            proxyService,
+            resolver,
+            null,
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
+            CreateAccessRequestService(),
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService(),
+            options,
+            NullLogger<GatewayMiddleware>.Instance);
+
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Request.Path = "/";
+        context.Request.Host = new HostString("unknown.example.com");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status502BadGateway, context.Response.StatusCode);
+    }
+
+    private sealed class FakeAutomaticBlockingService : IAutomaticBlockingService
+    {
+        public Task<BlockResultDto?> CheckAndBlockAsync(string ipAddress, int? threatScore = null, CancellationToken cancellationToken = default)
+            => Task.FromResult<BlockResultDto?>(null);
+
+        public Task<BlockResultDto> BlockAsync(string ipAddress, int? durationMinutes = null, string? reason = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new BlockResultDto { Blocked = true, IpAddress = ipAddress });
+
+        public Task UnblockAsync(string ipAddress, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<bool> IsBlockedAsync(string ipAddress, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
     }
 }

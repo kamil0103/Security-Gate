@@ -1,3 +1,5 @@
+using SecurityGateway.Domain.IpIntelligence;
+
 namespace SecurityGateway.Domain.Identity;
 
 public sealed class User
@@ -14,6 +16,7 @@ public sealed class User
 
     public ICollection<Session> Sessions { get; init; } = new List<Session>();
     public ICollection<Device> Devices { get; init; } = new List<Device>();
+    public ICollection<IpUserAssociation> IpAssociations { get; init; } = new List<IpUserAssociation>();
     public ICollection<PasswordResetToken> PasswordResetTokens { get; init; } = new List<PasswordResetToken>();
     public ICollection<EmailVerificationToken> EmailVerificationTokens { get; init; } = new List<EmailVerificationToken>();
 }

@@ -1,16 +1,64 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using SecurityGateway.Api;
 using SecurityGateway.Api.Identity;
 using SecurityGateway.Api.Middleware;
 using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.Health;
+using SecurityGateway.Application.AccessControl;
+using SecurityGateway.Application.Applications;
+using SecurityGateway.Application.Audit;
+using SecurityGateway.Application.BehavioralAnalysis;
+using SecurityGateway.Application.Blocking;
+using SecurityGateway.Application.Cloudflare;
+using SecurityGateway.Application.CrowdSec;
+using SecurityGateway.Application.Dashboard;
 using SecurityGateway.Application.Identity;
+using SecurityGateway.Application.IpIntelligence;
+using SecurityGateway.Application.Map;
+using SecurityGateway.Application.Notifications;
+using SecurityGateway.Application.RateLimiting;
+using SecurityGateway.Application.ThreatDetection;
+using SecurityGateway.Application.ThreatIntelligence;
+using SecurityGateway.Application.Waf;
+using SecurityGateway.Application.WebAuthn;
 using SecurityGateway.Infrastructure.Gateway;
 using SecurityGateway.Infrastructure.Health;
 using SecurityGateway.Infrastructure.Identity;
+using StackExchange.Redis;
+using SecurityGateway.Infrastructure.IpIntelligence;
+using SecurityGateway.Infrastructure.IpIntelligence.Providers;
+using SecurityGateway.Infrastructure.IpIntelligence.Repositories;
 using SecurityGateway.Infrastructure.Persistence;
 using SecurityGateway.Infrastructure.Persistence.Repositories;
+using SecurityGateway.Infrastructure.AccessControl.Repositories;
+using SecurityGateway.Infrastructure.AccessControl.Services;
+using SecurityGateway.Infrastructure.Applications.Repositories;
+using SecurityGateway.Infrastructure.Applications.Services;
+using SecurityGateway.Infrastructure.Audit.Repositories;
+using SecurityGateway.Infrastructure.Audit.Services;
+using SecurityGateway.Infrastructure.BehavioralAnalysis.Services;
+using SecurityGateway.Infrastructure.Blocking.Services;
+using SecurityGateway.Infrastructure.Cloudflare;
+using SecurityGateway.Infrastructure.CrowdSec;
+using SecurityGateway.Infrastructure.Dashboard.Services;
+using SecurityGateway.Infrastructure.Map.Services;
+using SecurityGateway.Infrastructure.Notifications.Providers;
+using SecurityGateway.Infrastructure.Notifications.Repositories;
+using SecurityGateway.Infrastructure.Notifications.Services;
+using SecurityGateway.Infrastructure.ThreatIntelligence.Providers;
+using SecurityGateway.Infrastructure.ThreatIntelligence.Services;
+using SecurityGateway.Infrastructure.WebAuthn.Repositories;
+using SecurityGateway.Infrastructure.WebAuthn.Services;
+using SecurityGateway.Infrastructure.RateLimiting.Repositories;
+using SecurityGateway.Infrastructure.RateLimiting.Services;
+using SecurityGateway.Infrastructure.RateLimiting.Stores;
+using SecurityGateway.Infrastructure.ThreatDetection.Repositories;
+using SecurityGateway.Infrastructure.ThreatDetection.Services;
+using SecurityGateway.Infrastructure.Waf.Repositories;
+using SecurityGateway.Infrastructure.Waf.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,13 +68,74 @@ var postgresConnectionString = builder.Configuration.GetConnectionString("Postgr
 var redisConnectionString = builder.Configuration.GetConnectionString("Redis")
     ?? throw new InvalidOperationException("Redis connection string is not configured.");
 
+builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConnectionString));
 builder.Services.AddSingleton<IHealthCheckService>(_ => new HealthCheckService(postgresConnectionString, redisConnectionString));
 
 var gatewayOptions = builder.Configuration.GetSection(GatewayOptions.SectionName).Get<GatewayOptions>()
     ?? new GatewayOptions();
 
 builder.Services.AddSingleton(gatewayOptions);
-builder.Services.AddSingleton<IClientIpResolver>(_ => new ForwardedHeadersClientIpResolver(gatewayOptions.TrustedProxies.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
+
+var automaticBlockingOptions = builder.Configuration.GetSection(AutomaticBlockingOptions.SectionName).Get<AutomaticBlockingOptions>()
+    ?? new AutomaticBlockingOptions();
+
+builder.Services.AddSingleton(automaticBlockingOptions);
+
+var hstsOptions = builder.Configuration.GetSection(HstsOptions.SectionName).Get<HstsOptions>()
+    ?? new HstsOptions();
+
+builder.Services.AddSingleton(hstsOptions);
+
+var forwardedHeadersSettings = builder.Configuration.GetSection(ForwardedHeadersSettings.SectionName).Get<ForwardedHeadersSettings>()
+    ?? new ForwardedHeadersSettings();
+
+builder.Services.AddSingleton(forwardedHeadersSettings);
+
+var threatIntelligenceOptions = builder.Configuration.GetSection(ThreatIntelligenceOptions.SectionName).Get<ThreatIntelligenceOptions>()
+    ?? new ThreatIntelligenceOptions();
+
+builder.Services.AddSingleton(threatIntelligenceOptions);
+
+var behavioralAnalysisOptions = builder.Configuration.GetSection(BehavioralAnalysisOptions.SectionName).Get<BehavioralAnalysisOptions>()
+    ?? new BehavioralAnalysisOptions();
+
+builder.Services.AddSingleton(behavioralAnalysisOptions);
+
+var crowdSecOptions = builder.Configuration.GetSection(CrowdSecOptions.SectionName).Get<CrowdSecOptions>()
+    ?? new CrowdSecOptions();
+
+builder.Services.AddSingleton(crowdSecOptions);
+
+var webAuthnOptions = builder.Configuration.GetSection(WebAuthnOptions.SectionName).Get<WebAuthnOptions>()
+    ?? new WebAuthnOptions();
+
+builder.Services.AddSingleton(webAuthnOptions);
+
+var cloudflareOptions = builder.Configuration.GetSection(CloudflareOptions.SectionName).Get<CloudflareOptions>()
+    ?? new CloudflareOptions();
+
+builder.Services.AddSingleton(cloudflareOptions);
+
+var inlineWafOptions = builder.Configuration.GetSection(InlineWafOptions.SectionName).Get<InlineWafOptions>()
+    ?? new InlineWafOptions();
+
+builder.Services.AddSingleton(inlineWafOptions);
+
+builder.Services.AddHsts(options =>
+{
+    if (hstsOptions.Enabled)
+    {
+        options.MaxAge = TimeSpan.FromDays(hstsOptions.MaxAgeDays);
+        options.IncludeSubDomains = hstsOptions.IncludeSubDomains;
+        options.Preload = hstsOptions.Preload;
+    }
+});
+builder.Services.AddSingleton<IClientIpResolver>(provider =>
+{
+    var inner = new ForwardedHeadersClientIpResolver(gatewayOptions.TrustedProxies.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    var cloudflareIpService = provider.GetRequiredService<ICloudflareIpService>();
+    return new CloudflareClientIpResolver(inner, cloudflareIpService, cloudflareOptions);
+});
 
 builder.Services.AddHttpClient<IProxyService, HttpClientProxyService>((serviceProvider, client) =>
 {
@@ -36,6 +145,8 @@ builder.Services.AddHttpClient<IProxyService, HttpClientProxyService>((servicePr
 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
 {
     UseProxy = false,
+    UseCookies = false,
+    AllowAutoRedirect = false,
     PooledConnectionLifetime = TimeSpan.FromMinutes(5)
 });
 
@@ -54,10 +165,94 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<ISessionRepository, SessionRepository>();
 builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
+builder.Services.AddScoped<IIpAddressRepository, IpAddressRepository>();
+builder.Services.AddScoped<ITrustedNetworkRepository, TrustedNetworkRepository>();
+    builder.Services.AddScoped<IBlocklistRepository, BlocklistRepository>();
+    builder.Services.AddScoped<IAccessDecisionRepository, AccessDecisionRepository>();
+    builder.Services.AddScoped<IAccessRequestRepository, AccessRequestRepository>();
+    builder.Services.AddScoped<ITrustRecordRepository, TrustRecordRepository>();
 
 // Identity services
 builder.Services.AddScoped<IDeviceIdentityService, DeviceIdentityService>();
 builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+
+// Access control services
+    builder.Services.AddScoped<IAccessControlService, AccessControlService>();
+    builder.Services.AddScoped<IAccessRequestService, AccessRequestService>();
+
+// Application policy services
+builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
+builder.Services.AddScoped<IApplicationPolicyRepository, ApplicationPolicyRepository>();
+builder.Services.AddScoped<IApplicationPolicyService, ApplicationPolicyService>();
+
+// Rate limiting services
+builder.Services.AddSingleton<IRateLimitStore, RedisRateLimitStore>();
+builder.Services.AddScoped<IRateLimitRuleRepository, RateLimitRuleRepository>();
+builder.Services.AddScoped<IRateLimitService, RateLimitService>();
+
+// WAF services
+builder.Services.AddSingleton<IAttackClassifier, ModSecurityAttackClassifier>();
+builder.Services.AddScoped<IWafEventRepository, WafEventRepository>();
+builder.Services.AddScoped<IWafEventService, WafEventService>();
+
+// Threat detection services
+builder.Services.AddScoped<ISecurityEventRepository, SecurityEventRepository>();
+builder.Services.AddScoped<IThreatScoreRuleRepository, ThreatScoreRuleRepository>();
+builder.Services.AddScoped<IThreatDetectionService, ThreatDetectionService>();
+
+// Automatic blocking service
+builder.Services.AddScoped<IAutomaticBlockingService, AutomaticBlockingService>();
+
+// Dashboard service
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+// Map service
+builder.Services.AddScoped<IMapService, MapService>();
+
+// Audit service
+builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+
+// Threat intelligence
+builder.Services.AddScoped<IThreatIntelligenceService, ThreatIntelligenceService>();
+if (!string.IsNullOrWhiteSpace(threatIntelligenceOptions.AbuseIpDbApiKey))
+{
+    builder.Services.AddHttpClient<IThreatIntelligenceProvider, AbuseIpDbThreatIntelligenceProvider>(client =>
+        new AbuseIpDbThreatIntelligenceProvider(client, threatIntelligenceOptions.AbuseIpDbApiKey));
+}
+
+// Behavioral analysis
+builder.Services.AddSingleton<IBehavioralAnalysisService, BehavioralAnalysisService>();
+
+// CrowdSec
+builder.Services.AddScoped<ICrowdSecClient, CrowdSecClient>();
+
+// WebAuthn
+builder.Services.AddScoped<IWebAuthnCredentialRepository, WebAuthnCredentialRepository>();
+builder.Services.AddScoped<IWebAuthnService, WebAuthnService>();
+
+// Cloudflare
+builder.Services.AddSingleton<ICloudflareIpService, CloudflareIpService>();
+
+// Notification repositories and service
+builder.Services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();
+builder.Services.AddScoped<INotificationLogRepository, NotificationLogRepository>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
+
+// Notification channel providers
+builder.Services.AddScoped<INotificationChannelProvider, EmailNotificationProvider>();
+builder.Services.AddHttpClient<INotificationChannelProvider, TelegramNotificationProvider>();
+builder.Services.AddHttpClient<INotificationChannelProvider, DiscordNotificationProvider>();
+builder.Services.AddHttpClient<INotificationChannelProvider, NtfyNotificationProvider>();
+builder.Services.AddScoped<INotificationChannelProvider, WebPushNotificationProvider>();
+
+// IP intelligence providers (replace with real providers in production)
+builder.Services.AddSingleton<IGeoIpProvider, NullGeoIpProvider>();
+builder.Services.AddSingleton<IReputationProvider, NullReputationProvider>();
+builder.Services.AddSingleton<IVpnProxyDetector, NullVpnProxyDetector>();
+
+builder.Services.AddScoped<IIpIntelligenceService, IpIntelligenceService>();
 
 var jwtOptions = builder.Configuration.GetSection(JwtOptions.SectionName).Get<JwtOptions>()
     ?? throw new InvalidOperationException("JWT options are not configured.");
@@ -114,10 +309,47 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("DevelopmentCors");
 
-app.UseMiddleware<GatewayMiddleware>();
+if (forwardedHeadersSettings.Enabled && forwardedHeadersSettings.ForwardHeaders)
+{
+    var forwardedHeadersOptions = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    };
+
+    foreach (var proxy in forwardedHeadersSettings.KnownProxies)
+    {
+        if (System.Net.IPAddress.TryParse(proxy, out var ip))
+        {
+            forwardedHeadersOptions.KnownProxies.Add(ip);
+        }
+    }
+
+    foreach (var network in forwardedHeadersSettings.KnownNetworks)
+    {
+        var parts = network.Split('/');
+        if (parts.Length == 2 &&
+            System.Net.IPAddress.TryParse(parts[0], out var ip) &&
+            int.TryParse(parts[1], out var prefix))
+        {
+            forwardedHeadersOptions.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(ip, prefix));
+        }
+    }
+
+    app.UseForwardedHeaders(forwardedHeadersOptions);
+}
+
+if (!app.Environment.IsDevelopment() && hstsOptions.Enabled)
+{
+    app.UseHsts();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseMiddleware<InlineWafMiddleware>();
+
+app.UseMiddleware<GatewayMiddleware>();
 
 app.MapControllers();
 

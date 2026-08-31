@@ -1,68 +1,208 @@
-import { useEffect, useState } from 'react'
-import { fetchHealth, type HealthCheckResult } from './lib/api'
+import { Link, Route, Routes, useNavigate } from 'react-router-dom'
 import './styles.css'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { RequireAuth } from './components/RequireAuth'
+import { ApplicationsPage } from './pages/ApplicationsPage'
+import { ApprovalsPage } from './pages/ApprovalsPage'
+import { AuditPage } from './pages/AuditPage'
+import { BlockIpPage } from './pages/BlockIpPage'
+import { DashboardPage } from './pages/DashboardPage'
+import { DevicesPage } from './pages/DevicesPage'
+import { HealthPage } from './pages/HealthPage'
+import { IpExplorerPage } from './pages/IpExplorerPage'
+import { LoginPage } from './pages/LoginPage'
+import { MapPage } from './pages/MapPage'
+import { NotificationsPage } from './pages/NotificationsPage'
+import { SecurityEventsPage } from './pages/SecurityEventsPage'
+import { TrustedNetworksPage } from './pages/TrustedNetworksPage'
 
-function App() {
-  const [health, setHealth] = useState<HealthCheckResult | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+function Header() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
 
-  useEffect(() => {
-    fetchHealth()
-      .then(setHealth)
-      .catch((err) => setError(err instanceof Error ? err.message : 'Unknown error'))
-      .finally(() => setLoading(false))
-  }, [])
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login')
+  }
+
+  return (
+    <header className="header">
+      <div>
+        <h1>Security Gateway</h1>
+        <p className="subtitle">Self-hosted security gateway for Unraid</p>
+      </div>
+      {user && (
+        <div className="user-menu">
+          <span>{user.username}</span>
+          <button onClick={handleLogout} className="button secondary">
+            Logout
+          </button>
+        </div>
+      )}
+    </header>
+  )
+}
+
+function Layout() {
+  const { user } = useAuth()
 
   return (
     <div className="container">
-      <header className="header">
-        <h1>Security Gateway</h1>
-        <p className="subtitle">Self-hosted security gateway for Unraid</p>
-      </header>
+      <Header />
 
-      <main className="card">
-        <h2>Development Environment Status</h2>
+      {user && (
+        <nav className="nav">
+          <Link className="nav-link" to="/">
+            Dashboard
+          </Link>
+          <Link className="nav-link" to="/approvals">
+            Approvals
+          </Link>
+          <Link className="nav-link" to="/applications">
+            Apps
+          </Link>
+          <Link className="nav-link" to="/trusted-networks">
+            Networks
+          </Link>
+          <Link className="nav-link" to="/devices">
+            Devices
+          </Link>
+          <Link className="nav-link" to="/notifications">
+            Alerts
+          </Link>
+          <Link className="nav-link" to="/security-events">
+            Events
+          </Link>
+          <Link className="nav-link" to="/block-ip">
+            Block
+          </Link>
+          <Link className="nav-link" to="/audit">
+            Audit
+          </Link>
+          <Link className="nav-link" to="/map">
+            Map
+          </Link>
+          <Link className="nav-link" to="/ip-explorer">
+            IP Explorer
+          </Link>
+          <Link className="nav-link" to="/health">
+            Health
+          </Link>
+        </nav>
+      )}
 
-        {loading && <p>Checking backend health...</p>}
-
-        {error && (
-          <div className="status error">
-            <strong>Error:</strong> {error}
-          </div>
-        )}
-
-        {health && (
-          <>
-            <div className={`status ${health.status.toLowerCase()}`}>
-              <strong>Status:</strong> {health.status}
-            </div>
-            <ul className="service-list">
-              <li>
-                <span className="label">PostgreSQL:</span>
-                <span className={health.postgresConnected ? 'ok' : 'fail'}>
-                  {health.postgresConnected ? 'Connected' : 'Disconnected'}
-                </span>
-              </li>
-              <li>
-                <span className="label">Redis:</span>
-                <span className={health.redisConnected ? 'ok' : 'fail'}>
-                  {health.redisConnected ? 'Connected' : 'Disconnected'}
-                </span>
-              </li>
-              <li>
-                <span className="label">Timestamp:</span>
-                <span>{new Date(health.timestamp).toLocaleString()}</span>
-              </li>
-            </ul>
-          </>
-        )}
-      </main>
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <DashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/approvals"
+          element={
+            <RequireAuth>
+              <ApprovalsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/applications"
+          element={
+            <RequireAuth>
+              <ApplicationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/trusted-networks"
+          element={
+            <RequireAuth>
+              <TrustedNetworksPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/devices"
+          element={
+            <RequireAuth>
+              <DevicesPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <RequireAuth>
+              <NotificationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/security-events"
+          element={
+            <RequireAuth>
+              <SecurityEventsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/block-ip"
+          element={
+            <RequireAuth>
+              <BlockIpPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/audit"
+          element={
+            <RequireAuth>
+              <AuditPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/map"
+          element={
+            <RequireAuth>
+              <MapPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ip-explorer"
+          element={
+            <RequireAuth>
+              <IpExplorerPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/health"
+          element={
+            <RequireAuth>
+              <HealthPage />
+            </RequireAuth>
+          }
+        />
+      </Routes>
 
       <footer className="footer">
-        <p>Phase 1 milestone — development infrastructure</p>
+        <p>Security Gateway v1.0</p>
       </footer>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Layout />
+    </AuthProvider>
   )
 }
 

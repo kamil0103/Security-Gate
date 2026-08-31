@@ -23,17 +23,16 @@ public sealed class HttpClientProxyService : IProxyService
     public HttpClientProxyService(HttpClient httpClient)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
-        ArgumentNullException.ThrowIfNull(httpClient.BaseAddress);
 
         _httpClient = httpClient;
     }
 
-    public async Task<ProxyResponse> ForwardAsync(ProxyRequestContext request, CancellationToken cancellationToken = default)
+    public async Task<ProxyResponse> ForwardAsync(ProxyRequestContext request, string? upstreamUrl = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        var upstreamUrl = BuildUpstreamUrl(request.Path, request.QueryString);
-        using var upstreamRequest = new HttpRequestMessage(new HttpMethod(request.Method), upstreamUrl);
+        var requestUri = BuildRequestUri(upstreamUrl, request.Path, request.QueryString);
+        using var upstreamRequest = new HttpRequestMessage(new HttpMethod(request.Method), requestUri);
 
         foreach (var (name, values) in request.Headers)
         {
@@ -43,6 +42,11 @@ public sealed class HttpClientProxyService : IProxyService
             }
 
             upstreamRequest.Headers.TryAddWithoutValidation(name, values);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Host))
+        {
+            upstreamRequest.Headers.Host = request.Host;
         }
 
         if (request.ClientIp is not null)
@@ -93,7 +97,7 @@ public sealed class HttpClientProxyService : IProxyService
                 Body = await upstreamResponse.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false)
             };
         }
-        catch (HttpRequestException)
+        catch (Exception ex)
         {
             return new ProxyResponse
             {
@@ -102,17 +106,28 @@ public sealed class HttpClientProxyService : IProxyService
                 {
                     ["Content-Type"] = ["text/plain"]
                 },
-                Body = new MemoryStream("Bad Gateway: upstream is unavailable."u8.ToArray())
+                Body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes($"Bad Gateway: {ex.Message}"))
             };
         }
     }
 
-    private static string BuildUpstreamUrl(string path, string queryString)
+    private Uri BuildRequestUri(string? upstreamUrl, string path, string queryString)
     {
         var normalizedPath = path.StartsWith('/') ? path : "/" + path;
-        return string.IsNullOrEmpty(queryString)
+        var pathAndQuery = string.IsNullOrEmpty(queryString)
             ? normalizedPath
             : $"{normalizedPath}{queryString}";
+
+        if (string.IsNullOrWhiteSpace(upstreamUrl))
+        {
+            return new Uri(_httpClient.BaseAddress!, pathAndQuery);
+        }
+
+        var baseUri = upstreamUrl.EndsWith('/')
+            ? upstreamUrl
+            : upstreamUrl + "/";
+
+        return new Uri(new Uri(baseUri), pathAndQuery);
     }
 
     private static bool ShouldSkipRequestHeader(string name)

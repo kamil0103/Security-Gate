@@ -1,6 +1,16 @@
 using Microsoft.EntityFrameworkCore;
 using SecurityGateway.Application.Identity;
+using SecurityGateway.Domain.AccessControl;
+using SecurityGateway.Domain.Audit;
 using SecurityGateway.Domain.Identity;
+using SecurityGateway.Domain.IpIntelligence;
+using SecurityGateway.Domain.Notifications;
+using SecurityGateway.Domain.RateLimiting;
+using SecurityGateway.Domain.ThreatDetection;
+using SecurityGateway.Domain.Waf;
+using SecurityGateway.Domain.WebAuthn;
+using ApplicationEntity = SecurityGateway.Domain.Applications.Application;
+using ApplicationPolicyEntity = SecurityGateway.Domain.Applications.ApplicationPolicy;
 
 namespace SecurityGateway.Infrastructure.Persistence;
 
@@ -15,8 +25,26 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<Session> Sessions => Set<Session>();
     public DbSet<Device> Devices => Set<Device>();
     public DbSet<DeviceIpAddress> DeviceIpAddresses => Set<DeviceIpAddress>();
+    public DbSet<IpAddress> IpAddresses => Set<IpAddress>();
+    public DbSet<IpUserAssociation> IpUserAssociations => Set<IpUserAssociation>();
+    public DbSet<IpDeviceAssociation> IpDeviceAssociations => Set<IpDeviceAssociation>();
+    public DbSet<TrustedNetwork> TrustedNetworks => Set<TrustedNetwork>();
+    public DbSet<BlocklistEntry> BlocklistEntries => Set<BlocklistEntry>();
+    public DbSet<AccessDecision> AccessDecisions => Set<AccessDecision>();
+    public DbSet<AccessRequest> AccessRequests => Set<AccessRequest>();
+    public DbSet<TrustRecord> TrustRecords => Set<TrustRecord>();
+    public DbSet<ApplicationEntity> Applications => Set<ApplicationEntity>();
+    public DbSet<ApplicationPolicyEntity> ApplicationPolicies => Set<ApplicationPolicyEntity>();
+    public DbSet<RateLimitRule> RateLimitRules => Set<RateLimitRule>();
+    public DbSet<WafEvent> WafEvents => Set<WafEvent>();
+    public DbSet<SecurityEvent> SecurityEvents => Set<SecurityEvent>();
+    public DbSet<ThreatScoreRule> ThreatScoreRules => Set<ThreatScoreRule>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<EmailVerificationToken> EmailVerificationTokens => Set<EmailVerificationToken>();
+    public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
+    public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<WebAuthnCredential> WebAuthnCredentials => Set<WebAuthnCredential>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -67,6 +95,181 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.Property(e => e.IpAddress).HasMaxLength(64);
         });
 
+        modelBuilder.Entity<IpAddress>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Ip).IsUnique();
+            entity.Property(e => e.Ip).HasMaxLength(64);
+            entity.Property(e => e.CountryCode).HasMaxLength(8);
+            entity.Property(e => e.Country).HasMaxLength(100);
+            entity.Property(e => e.Region).HasMaxLength(100);
+            entity.Property(e => e.City).HasMaxLength(100);
+            entity.Property(e => e.Isp).HasMaxLength(200);
+            entity.Property(e => e.Organization).HasMaxLength(200);
+            entity.Property(e => e.Asn).HasMaxLength(64);
+            entity.Property(e => e.ThreatLevel).HasMaxLength(32);
+            entity.Property(e => e.ReputationSource).HasMaxLength(100);
+        });
+
+        modelBuilder.Entity<IpUserAssociation>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.IpAddressId, e.UserId }).IsUnique();
+            entity.HasOne(e => e.IpAddress).WithMany(ip => ip.UserAssociations).HasForeignKey(e => e.IpAddressId);
+            entity.HasOne(e => e.User).WithMany(u => u.IpAssociations).HasForeignKey(e => e.UserId);
+        });
+
+        modelBuilder.Entity<IpDeviceAssociation>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.IpAddressId, e.DeviceId }).IsUnique();
+            entity.HasOne(e => e.IpAddress).WithMany(ip => ip.DeviceAssociations).HasForeignKey(e => e.IpAddressId);
+            entity.HasOne(e => e.Device).WithMany(d => d.IpAssociations).HasForeignKey(e => e.DeviceId);
+        });
+
+        modelBuilder.Entity<TrustedNetwork>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Cidr).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Cidr).HasMaxLength(64);
+            entity.Property(e => e.Description).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<BlocklistEntry>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.Type, e.Value }).IsUnique();
+            entity.Property(e => e.Value).HasMaxLength(128);
+            entity.Property(e => e.Reason).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<AccessDecision>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.Type, e.TargetId });
+            entity.Property(e => e.Reason).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<AccessRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.PublicId).IsUnique();
+            entity.HasIndex(e => new { e.ApplicationId, e.ClientIp, e.DeviceFingerprint, e.SessionId, e.Status });
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ExpiresAt);
+            entity.Property(e => e.PublicId).HasMaxLength(16);
+            entity.Property(e => e.HttpMethod).HasMaxLength(16);
+            entity.Property(e => e.RequestedPath).HasMaxLength(2000);
+            entity.Property(e => e.QueryString).HasMaxLength(2000);
+            entity.Property(e => e.ClientIp).HasMaxLength(64);
+            entity.Property(e => e.DeviceFingerprint).HasMaxLength(256);
+            entity.Property(e => e.DeviceName).HasMaxLength(100);
+            entity.Property(e => e.DeviceId).HasMaxLength(128);
+            entity.Property(e => e.SessionId).HasMaxLength(128);
+            entity.Property(e => e.UserAgent).HasMaxLength(512);
+            entity.Property(e => e.Browser).HasMaxLength(100);
+            entity.Property(e => e.OperatingSystem).HasMaxLength(100);
+            entity.Property(e => e.Country).HasMaxLength(100);
+            entity.Property(e => e.CountryCode).HasMaxLength(8);
+            entity.Property(e => e.Region).HasMaxLength(100);
+            entity.Property(e => e.City).HasMaxLength(100);
+            entity.Property(e => e.Asn).HasMaxLength(64);
+            entity.Property(e => e.Isp).HasMaxLength(200);
+            entity.Property(e => e.ThreatLevel).HasMaxLength(32);
+            entity.Property(e => e.ReasonForChallenge).HasMaxLength(500);
+            entity.Property(e => e.ResolutionReason).HasMaxLength(500);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.Decision).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.ApprovalScope).HasConversion<string>().HasMaxLength(32);
+            entity.HasOne(e => e.Application).WithMany().HasForeignKey(e => e.ApplicationId);
+            entity.HasOne(e => e.IpAddress).WithMany().HasForeignKey(e => e.IpAddressId);
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
+            entity.HasOne(e => e.ReviewedByUser).WithMany().HasForeignKey(e => e.ReviewedByUserId);
+        });
+
+        modelBuilder.Entity<TrustRecord>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ApplicationId, e.ClientIp, e.DeviceFingerprint, e.UserId, e.SessionId, e.IsRevoked });
+            entity.HasIndex(e => e.ExpiresAt);
+            entity.Property(e => e.ClientIp).HasMaxLength(64);
+            entity.Property(e => e.DeviceFingerprint).HasMaxLength(256);
+            entity.Property(e => e.SessionId).HasMaxLength(128);
+            entity.Property(e => e.Scope).HasConversion<string>().HasMaxLength(32);
+            entity.HasOne(e => e.Application).WithMany().HasForeignKey(e => e.ApplicationId);
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
+            entity.HasOne(e => e.AccessRequest).WithMany(e => e.TrustRecords).HasForeignKey(e => e.AccessRequestId);
+        });
+
+        modelBuilder.Entity<ApplicationEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Domain).IsUnique();
+            entity.Property(e => e.Name).HasMaxLength(100);
+            entity.Property(e => e.Domain).HasMaxLength(253);
+            entity.Property(e => e.UpstreamUrl).HasMaxLength(500);
+            entity.Property(e => e.CloudflareMode).HasConversion<string>().HasMaxLength(32);
+        });
+
+        modelBuilder.Entity<ApplicationPolicyEntity>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ApplicationId).IsUnique();
+            entity.HasOne(e => e.Application).WithOne(a => a.Policy).HasForeignKey<ApplicationPolicyEntity>(e => e.ApplicationId);
+            entity.Property(e => e.AllowedCountries).HasMaxLength(1000);
+            entity.Property(e => e.BlockedCountries).HasMaxLength(1000);
+            entity.Property(e => e.AllowedIpAddresses).HasMaxLength(2000);
+            entity.Property(e => e.BlockedIpAddresses).HasMaxLength(2000);
+            entity.Property(e => e.AllowedCloudflareCountries).HasMaxLength(1000);
+            entity.Property(e => e.BlockedCloudflareCountries).HasMaxLength(1000);
+            entity.Property(e => e.BypassAuthenticationPaths).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<RateLimitRule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ScopeType, e.ScopeValue });
+            entity.Property(e => e.ScopeValue).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<WafEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.SourceIp);
+            entity.HasIndex(e => e.AttackType);
+            entity.HasIndex(e => e.Severity);
+            entity.Property(e => e.SourceIp).HasMaxLength(64);
+            entity.Property(e => e.RequestId).HasMaxLength(64);
+            entity.Property(e => e.RuleId).HasMaxLength(64);
+            entity.Property(e => e.RuleMessage).HasMaxLength(1000);
+            entity.Property(e => e.Method).HasMaxLength(16);
+            entity.Property(e => e.Uri).HasMaxLength(2000);
+            entity.Property(e => e.Host).HasMaxLength(253);
+        });
+
+        modelBuilder.Entity<SecurityEvent>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.Type);
+            entity.HasIndex(e => e.Severity);
+            entity.HasIndex(e => e.SourceIp);
+            entity.HasIndex(e => e.UserId);
+            entity.Property(e => e.SourceIp).HasMaxLength(64);
+            entity.Property(e => e.Description).HasMaxLength(1000);
+            entity.Property(e => e.RelatedEntityType).HasMaxLength(100);
+            entity.Property(e => e.RelatedEntityId).HasMaxLength(64);
+        });
+
+        modelBuilder.Entity<ThreatScoreRule>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.EventType);
+            entity.Property(e => e.Name).HasMaxLength(200);
+        });
+
         modelBuilder.Entity<PasswordResetToken>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -81,6 +284,50 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.HasIndex(e => e.TokenHash);
             entity.HasOne(e => e.User).WithMany(u => u.EmailVerificationTokens).HasForeignKey(e => e.UserId);
             entity.Property(e => e.TokenHash).HasMaxLength(128);
+        });
+
+        modelBuilder.Entity<NotificationChannel>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.Property(e => e.Name).HasMaxLength(200);
+            entity.Property(e => e.Type).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.Configuration).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<NotificationLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.Property(e => e.Recipient).HasMaxLength(500);
+            entity.Property(e => e.Subject).HasMaxLength(500);
+            entity.Property(e => e.ChannelType).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(16);
+            entity.Property(e => e.ErrorMessage).HasMaxLength(1000);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Timestamp);
+            entity.HasIndex(e => e.Category);
+            entity.HasIndex(e => e.Action);
+            entity.Property(e => e.Category).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.Action).HasMaxLength(200);
+            entity.Property(e => e.Username).HasMaxLength(100);
+            entity.Property(e => e.IpAddress).HasMaxLength(64);
+            entity.Property(e => e.Details).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<WebAuthnCredential>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.CredentialId);
+            entity.Property(e => e.CredentialId).HasMaxLength(512);
+            entity.Property(e => e.PublicKey).HasMaxLength(2000);
+            entity.Property(e => e.CredentialType).HasMaxLength(50);
+            entity.Property(e => e.Transports).HasMaxLength(200);
+            entity.Property(e => e.DeviceName).HasMaxLength(200);
         });
     }
 }
