@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace SecurityGateway.Domain.AccessControl;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum AccessRequestStatus
 {
     Pending,
@@ -9,6 +12,7 @@ public enum AccessRequestStatus
     Cancelled
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum AccessRequestDecision
 {
     Approve,
@@ -17,6 +21,7 @@ public enum AccessRequestDecision
     BlockDevice
 }
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum ApprovalScope
 {
     Once,

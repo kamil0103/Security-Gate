@@ -1,5 +1,8 @@
+using System.Text.Json.Serialization;
+
 namespace SecurityGateway.Domain.Audit;
 
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum AuditCategory
 {
     Authentication,
