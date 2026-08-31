@@ -97,7 +97,7 @@ public sealed class HttpClientProxyService : IProxyService
                 Body = await upstreamResponse.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false)
             };
         }
-        catch (HttpRequestException)
+        catch (Exception ex)
         {
             return new ProxyResponse
             {
@@ -106,7 +106,7 @@ public sealed class HttpClientProxyService : IProxyService
                 {
                     ["Content-Type"] = ["text/plain"]
                 },
-                Body = new MemoryStream("Bad Gateway: upstream is unavailable."u8.ToArray())
+                Body = new MemoryStream($"Bad Gateway: {ex.Message}"u8.ToArray())
             };
         }
     }

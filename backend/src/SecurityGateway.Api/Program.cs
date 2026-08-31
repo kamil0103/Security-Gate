@@ -140,6 +140,8 @@ builder.Services.AddHttpClient<IProxyService, HttpClientProxyService>((servicePr
 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
 {
     UseProxy = false,
+    UseCookies = false,
+    AllowAutoRedirect = false,
     PooledConnectionLifetime = TimeSpan.FromMinutes(5)
 });
 
