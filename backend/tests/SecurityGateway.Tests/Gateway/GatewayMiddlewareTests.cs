@@ -6,6 +6,7 @@ using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Blocking;
 using SecurityGateway.Application.Blocking.DTOs;
 using SecurityGateway.Application.Gateway;
+using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Application.RateLimiting;
 using SecurityGateway.Application.RateLimiting.Models;
 using Xunit;
@@ -216,6 +217,43 @@ public class GatewayMiddlewareTests
 
         public Task DeleteRuleAsync(Guid id, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+    }
+
+    [Fact]
+    public async Task InvokeAsync_NoUpstreamConfigured_ReturnsBadGateway()
+    {
+        var proxyService = new FakeProxyService();
+        var resolver = new FakeClientIpResolver
+        {
+            Result = new ClientIpResolutionResult
+            {
+                ClientIp = "198.51.100.1",
+                ProxyChain = [],
+                IsTrusted = true
+            }
+        };
+        var options = new GatewayOptions { UpstreamNpmUrl = "" };
+
+        var middleware = new GatewayMiddleware(
+            _ => Task.CompletedTask,
+            proxyService,
+            resolver,
+            null,
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            options,
+            NullLogger<GatewayMiddleware>.Instance);
+
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Request.Path = "/";
+        context.Request.Host = new HostString("unknown.example.com");
+
+        await middleware.InvokeAsync(context);
+
+        Assert.Equal(StatusCodes.Status502BadGateway, context.Response.StatusCode);
     }
 
     private sealed class FakeAutomaticBlockingService : IAutomaticBlockingService
