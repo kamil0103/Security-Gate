@@ -11,6 +11,7 @@ using SecurityGateway.Application.Blocking;
 using SecurityGateway.Application.Dashboard;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
+using SecurityGateway.Application.Map;
 using SecurityGateway.Application.RateLimiting;
 using SecurityGateway.Application.ThreatDetection;
 using SecurityGateway.Application.Waf;
@@ -29,6 +30,7 @@ using SecurityGateway.Infrastructure.Applications.Repositories;
 using SecurityGateway.Infrastructure.Applications.Services;
 using SecurityGateway.Infrastructure.Blocking.Services;
 using SecurityGateway.Infrastructure.Dashboard.Services;
+using SecurityGateway.Infrastructure.Map.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Repositories;
 using SecurityGateway.Infrastructure.RateLimiting.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Stores;
@@ -122,6 +124,9 @@ builder.Services.AddScoped<IAutomaticBlockingService, AutomaticBlockingService>(
 
 // Dashboard service
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+
+// Map service
+builder.Services.AddScoped<IMapService, MapService>();
 
 // IP intelligence providers (replace with real providers in production)
 builder.Services.AddSingleton<IGeoIpProvider, NullGeoIpProvider>();

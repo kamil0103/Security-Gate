@@ -215,3 +215,122 @@ body {
   font-weight: 600;
   color: #fff;
 }
+
+.map-page,
+.ip-explorer {
+  margin-bottom: 2rem;
+}
+
+.map-page h2,
+.ip-explorer h2 {
+  margin-top: 0;
+}
+
+.map-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.map-controls label {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.map-controls select,
+.map-controls input[type='number'] {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background-color: var(--bg);
+  color: var(--text);
+  margin-top: 0.25rem;
+}
+
+.checkbox-label {
+  flex-direction: row !important;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+}
+
+.map-stats {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.map-container {
+  height: 500px;
+  border-radius: 1rem;
+  overflow: hidden;
+  background-color: var(--card);
+}
+
+.ip-search-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.ip-search-form input {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+.ip-search-form button {
+  padding: 0.75rem 1.25rem;
+  border-radius: 0.5rem;
+  border: none;
+  background-color: var(--accent);
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ip-search-form button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ip-details {
+  margin-top: 1rem;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.details-grid p {
+  margin: 0.25rem 0 0;
+}
+
+.flags {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.flag {
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background-color: rgba(148, 163, 184, 0.2);
+  color: var(--muted);
+}
+
+.flag.active {
+  background-color: var(--danger);
+  color: #fff;
+}
