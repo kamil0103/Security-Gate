@@ -151,12 +151,19 @@
 
 **Milestone:** The gateway automatically blocks malicious IPs based on threat scores and gives administrators manual block/unblock controls.
 
-## Phase 12 — Dashboard
+## Phase 12 — Dashboard ✅
 
-- Statistics, charts, and tables
-- Real-time events
-- Security timeline
-- Application/IP/device/attack statistics
+- `IDashboardService` and `DashboardController` for aggregating security metrics
+- Overview endpoints: total requests, blocked requests, active blocks, events today, applications, devices, users
+- Security event time-series charts by severity
+- Top threats table by threat score
+- Top attack types pie chart
+- Recent event feed table
+- Security timeline chart
+- React frontend dashboard using `recharts`, with routing via `react-router-dom`
+- Admin-only dashboard endpoints
+
+**Milestone:** Administrators have a visual security dashboard with statistics, charts, real-time event feed, and timeline.
 
 ## Phase 13 — Global Map
 
