@@ -1,4 +1,5 @@
 using SecurityGateway.Application.IpIntelligence;
+using SecurityGateway.Application.ThreatIntelligence;
 using SecurityGateway.Domain.IpIntelligence;
 using SecurityGateway.Infrastructure.IpIntelligence;
 using SecurityGateway.Infrastructure.IpIntelligence.Providers;
@@ -20,6 +21,7 @@ public class IpIntelligenceServiceTests
             new NullGeoIpProvider(),
             new NullReputationProvider(),
             new NullVpnProxyDetector(),
+            new FakeThreatIntelligenceService(),
             _unitOfWork);
     }
 

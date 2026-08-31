@@ -1,5 +1,6 @@
 using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Application.Identity;
+using SecurityGateway.Application.ThreatIntelligence;
 using SecurityGateway.Domain.IpIntelligence;
 
 namespace SecurityGateway.Infrastructure.IpIntelligence;
@@ -10,6 +11,7 @@ public sealed class IpIntelligenceService : IIpIntelligenceService
     private readonly IGeoIpProvider _geoIpProvider;
     private readonly IReputationProvider _reputationProvider;
     private readonly IVpnProxyDetector _vpnProxyDetector;
+    private readonly IThreatIntelligenceService _threatIntelligenceService;
     private readonly IUnitOfWork _unitOfWork;
 
     public IpIntelligenceService(
@@ -17,12 +19,14 @@ public sealed class IpIntelligenceService : IIpIntelligenceService
         IGeoIpProvider geoIpProvider,
         IReputationProvider reputationProvider,
         IVpnProxyDetector vpnProxyDetector,
+        IThreatIntelligenceService threatIntelligenceService,
         IUnitOfWork unitOfWork)
     {
         _ipAddressRepository = ipAddressRepository;
         _geoIpProvider = geoIpProvider;
         _reputationProvider = reputationProvider;
         _vpnProxyDetector = vpnProxyDetector;
+        _threatIntelligenceService = threatIntelligenceService;
         _unitOfWork = unitOfWork;
     }
 
@@ -85,11 +89,28 @@ public sealed class IpIntelligenceService : IIpIntelligenceService
             ? _vpnProxyDetector.CheckAsync(ipAddress, cancellationToken)
             : Task.FromResult(new VpnProxyResult { Source = "None" });
 
-        await Task.WhenAll(geoIpTask, reputationTask, vpnProxyTask).ConfigureAwait(false);
+        var threatIntelTask = _threatIntelligenceService.LookupAsync(ipAddress, cancellationToken);
+
+        await Task.WhenAll(geoIpTask, reputationTask, vpnProxyTask, threatIntelTask).ConfigureAwait(false);
 
         var geoIp = await geoIpTask;
         var reputation = await reputationTask;
         var vpnProxy = await vpnProxyTask;
+        var threatIntel = await threatIntelTask;
+
+        var externalScore = threatIntel.Any(r => r.IsMalicious)
+            ? threatIntel.Where(r => r.IsMalicious).Max(r => r.ConfidenceScore)
+            : 0;
+
+        var finalScore = Math.Max(reputation.Score, externalScore);
+        var threatLevel = finalScore switch
+        {
+            >= 80 => "critical",
+            >= 60 => "high",
+            >= 40 => "medium",
+            >= 20 => "low",
+            _ => reputation.ThreatLevel ?? "info"
+        };
 
         return new IpAddress
         {
@@ -107,9 +128,11 @@ public sealed class IpIntelligenceService : IIpIntelligenceService
             IsProxy = vpnProxy.IsProxy,
             IsTor = vpnProxy.IsTor,
             IsDatacenter = vpnProxy.IsDatacenter,
-            ThreatScore = reputation.Score,
-            ThreatLevel = reputation.ThreatLevel,
-            ReputationSource = reputation.Source,
+            ThreatScore = finalScore,
+            ThreatLevel = threatLevel,
+            ReputationSource = threatIntel.Any(r => r.IsMalicious)
+                ? $"{reputation.Source}; {string.Join(", ", threatIntel.Where(r => r.IsMalicious).Select(r => r.Source))}"
+                : reputation.Source,
             RequestCount = 1
         };
     }

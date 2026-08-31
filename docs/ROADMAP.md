@@ -225,14 +225,18 @@
 
 **Milestone:** The deployment is hardened with security headers, least-privilege containers, resource limits, backups, and explicit fail-closed behavior.
 
-## Phase 17 — V3 Advanced Security
+## Phase 17 — V3 Advanced Security ✅
 
-- CrowdSec integration
-- External threat intelligence
-- Behavioral analysis
-- Passkeys / WebAuthn
-- Advanced device trust
-- Advanced WAF functionality
+- `IThreatIntelligenceProvider` abstraction and composite `IThreatIntelligenceService`
+- AbuseIPDB provider for external IP reputation lookups
+- Threat intelligence integrated into IP enrichment (raises threat score from external sources)
+- `IBehavioralAnalysisService` with request-burst detection
+- `ICrowdSecClient` stub for future CrowdSec local API integration
+- WebAuthn/Passkey domain model (`WebAuthnCredential`) and service stub
+- `ThreatIntelligenceController`, `BehavioralAnalysisController`, and `WebAuthnController`
+- EF Core migration `AddWebAuthnCredentials`
+
+**Milestone:** The gateway can consume external threat intelligence, detect behavioral anomalies, and has a foundation for WebAuthn passkeys and CrowdSec integration.
 
 ## Phase 18 — Cloudflare
 

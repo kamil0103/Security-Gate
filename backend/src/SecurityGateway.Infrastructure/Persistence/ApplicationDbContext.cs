@@ -8,6 +8,7 @@ using SecurityGateway.Domain.Notifications;
 using SecurityGateway.Domain.RateLimiting;
 using SecurityGateway.Domain.ThreatDetection;
 using SecurityGateway.Domain.Waf;
+using SecurityGateway.Domain.WebAuthn;
 using ApplicationEntity = SecurityGateway.Domain.Applications.Application;
 using ApplicationPolicyEntity = SecurityGateway.Domain.Applications.ApplicationPolicy;
 
@@ -41,6 +42,7 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<NotificationChannel> NotificationChannels => Set<NotificationChannel>();
     public DbSet<NotificationLog> NotificationLogs => Set<NotificationLog>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<WebAuthnCredential> WebAuthnCredentials => Set<WebAuthnCredential>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -257,6 +259,18 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.Property(e => e.Username).HasMaxLength(100);
             entity.Property(e => e.IpAddress).HasMaxLength(64);
             entity.Property(e => e.Details).HasMaxLength(2000);
+        });
+
+        modelBuilder.Entity<WebAuthnCredential>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.CredentialId);
+            entity.Property(e => e.CredentialId).HasMaxLength(512);
+            entity.Property(e => e.PublicKey).HasMaxLength(2000);
+            entity.Property(e => e.CredentialType).HasMaxLength(50);
+            entity.Property(e => e.Transports).HasMaxLength(200);
+            entity.Property(e => e.DeviceName).HasMaxLength(200);
         });
     }
 }
