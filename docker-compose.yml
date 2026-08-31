@@ -88,6 +88,8 @@ services:
       DefaultAdmin__Username: ${DEFAULT_ADMIN_USERNAME:-admin}
       DefaultAdmin__Email: ${DEFAULT_ADMIN_EMAIL:-admin@toncom159.com}
       DefaultAdmin__Password: ${DEFAULT_ADMIN_PASSWORD:-ChangeMeInProduction123!}
+      InlineWaf__Enabled: ${InlineWaf__Enabled:-true}
+      InlineWaf__LogOnly: ${InlineWaf__LogOnly:-false}
     ports:
       - "${BACKEND_PORT:-5100}:8080"
     depends_on:
