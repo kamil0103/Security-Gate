@@ -106,7 +106,7 @@ public sealed class HttpClientProxyService : IProxyService
                 {
                     ["Content-Type"] = ["text/plain"]
                 },
-                Body = new MemoryStream($"Bad Gateway: {ex.Message}"u8.ToArray())
+                Body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes($"Bad Gateway: {ex.Message}"))
             };
         }
     }
