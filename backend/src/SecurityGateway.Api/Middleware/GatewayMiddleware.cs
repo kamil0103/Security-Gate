@@ -62,7 +62,7 @@ public sealed class GatewayMiddleware
     {
         var path = context.Request.Path.Value ?? "/";
 
-        if (IsAdminPath(path))
+        if (IsAdminPath(context.Request.Host.Host, path))
         {
             await _next(context).ConfigureAwait(false);
             return;
@@ -354,8 +354,13 @@ public sealed class GatewayMiddleware
         return Guid.TryParse(userIdClaim, out var userId) ? userId : null;
     }
 
-    private bool IsAdminPath(string path)
+    private bool IsAdminPath(string host, string path)
     {
+        if (!host.Equals(_options.AdminDomain, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         foreach (var prefix in _options.AdminPathPrefixes)
         {
             if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))

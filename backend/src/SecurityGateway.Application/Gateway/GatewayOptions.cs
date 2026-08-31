@@ -17,6 +17,12 @@ public sealed class GatewayOptions
 
     /// <summary>
     /// Path prefixes that are served directly by the gateway and not proxied upstream.
+    /// Only applies when the request host matches <see cref="AdminDomain"/>.
     /// </summary>
     public List<string> AdminPathPrefixes { get; set; } = ["/api", "/swagger"];
+
+    /// <summary>
+    /// Host name of the admin dashboard. Admin path prefixes are only bypassed for this host.
+    /// </summary>
+    public string AdminDomain { get; set; } = "admin.toncom159.com";
 }
