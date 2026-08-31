@@ -10,7 +10,9 @@ using SecurityGateway.Application.Health;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Audit;
+using SecurityGateway.Application.BehavioralAnalysis;
 using SecurityGateway.Application.Blocking;
+using SecurityGateway.Application.CrowdSec;
 using SecurityGateway.Application.Dashboard;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.IpIntelligence;
@@ -18,7 +20,9 @@ using SecurityGateway.Application.Map;
 using SecurityGateway.Application.Notifications;
 using SecurityGateway.Application.RateLimiting;
 using SecurityGateway.Application.ThreatDetection;
+using SecurityGateway.Application.ThreatIntelligence;
 using SecurityGateway.Application.Waf;
+using SecurityGateway.Application.WebAuthn;
 using SecurityGateway.Infrastructure.Gateway;
 using SecurityGateway.Infrastructure.Health;
 using SecurityGateway.Infrastructure.Identity;
@@ -34,12 +38,18 @@ using SecurityGateway.Infrastructure.Applications.Repositories;
 using SecurityGateway.Infrastructure.Applications.Services;
 using SecurityGateway.Infrastructure.Audit.Repositories;
 using SecurityGateway.Infrastructure.Audit.Services;
+using SecurityGateway.Infrastructure.BehavioralAnalysis.Services;
 using SecurityGateway.Infrastructure.Blocking.Services;
+using SecurityGateway.Infrastructure.CrowdSec;
 using SecurityGateway.Infrastructure.Dashboard.Services;
 using SecurityGateway.Infrastructure.Map.Services;
 using SecurityGateway.Infrastructure.Notifications.Providers;
 using SecurityGateway.Infrastructure.Notifications.Repositories;
 using SecurityGateway.Infrastructure.Notifications.Services;
+using SecurityGateway.Infrastructure.ThreatIntelligence.Providers;
+using SecurityGateway.Infrastructure.ThreatIntelligence.Services;
+using SecurityGateway.Infrastructure.WebAuthn.Repositories;
+using SecurityGateway.Infrastructure.WebAuthn.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Repositories;
 using SecurityGateway.Infrastructure.RateLimiting.Services;
 using SecurityGateway.Infrastructure.RateLimiting.Stores;
@@ -78,6 +88,26 @@ var forwardedHeadersSettings = builder.Configuration.GetSection(ForwardedHeaders
     ?? new ForwardedHeadersSettings();
 
 builder.Services.AddSingleton(forwardedHeadersSettings);
+
+var threatIntelligenceOptions = builder.Configuration.GetSection(ThreatIntelligenceOptions.SectionName).Get<ThreatIntelligenceOptions>()
+    ?? new ThreatIntelligenceOptions();
+
+builder.Services.AddSingleton(threatIntelligenceOptions);
+
+var behavioralAnalysisOptions = builder.Configuration.GetSection(BehavioralAnalysisOptions.SectionName).Get<BehavioralAnalysisOptions>()
+    ?? new BehavioralAnalysisOptions();
+
+builder.Services.AddSingleton(behavioralAnalysisOptions);
+
+var crowdSecOptions = builder.Configuration.GetSection(CrowdSecOptions.SectionName).Get<CrowdSecOptions>()
+    ?? new CrowdSecOptions();
+
+builder.Services.AddSingleton(crowdSecOptions);
+
+var webAuthnOptions = builder.Configuration.GetSection(WebAuthnOptions.SectionName).Get<WebAuthnOptions>()
+    ?? new WebAuthnOptions();
+
+builder.Services.AddSingleton(webAuthnOptions);
 
 builder.Services.AddHsts(options =>
 {
@@ -160,6 +190,24 @@ builder.Services.AddScoped<IMapService, MapService>();
 // Audit service
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+
+// Threat intelligence
+builder.Services.AddScoped<IThreatIntelligenceService, ThreatIntelligenceService>();
+if (!string.IsNullOrWhiteSpace(threatIntelligenceOptions.AbuseIpDbApiKey))
+{
+    builder.Services.AddHttpClient<IThreatIntelligenceProvider, AbuseIpDbThreatIntelligenceProvider>(client =>
+        new AbuseIpDbThreatIntelligenceProvider(client, threatIntelligenceOptions.AbuseIpDbApiKey));
+}
+
+// Behavioral analysis
+builder.Services.AddSingleton<IBehavioralAnalysisService, BehavioralAnalysisService>();
+
+// CrowdSec
+builder.Services.AddScoped<ICrowdSecClient, CrowdSecClient>();
+
+// WebAuthn
+builder.Services.AddScoped<IWebAuthnCredentialRepository, WebAuthnCredentialRepository>();
+builder.Services.AddScoped<IWebAuthnService, WebAuthnService>();
 
 // Notification repositories and service
 builder.Services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();
