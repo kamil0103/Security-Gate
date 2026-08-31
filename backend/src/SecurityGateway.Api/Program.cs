@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using SecurityGateway.Api;
 using SecurityGateway.Api.Identity;
 using SecurityGateway.Api.Middleware;
 using SecurityGateway.Application.Gateway;
@@ -66,6 +68,26 @@ var automaticBlockingOptions = builder.Configuration.GetSection(AutomaticBlockin
     ?? new AutomaticBlockingOptions();
 
 builder.Services.AddSingleton(automaticBlockingOptions);
+
+var hstsOptions = builder.Configuration.GetSection(HstsOptions.SectionName).Get<HstsOptions>()
+    ?? new HstsOptions();
+
+builder.Services.AddSingleton(hstsOptions);
+
+var forwardedHeadersSettings = builder.Configuration.GetSection(ForwardedHeadersSettings.SectionName).Get<ForwardedHeadersSettings>()
+    ?? new ForwardedHeadersSettings();
+
+builder.Services.AddSingleton(forwardedHeadersSettings);
+
+builder.Services.AddHsts(options =>
+{
+    if (hstsOptions.Enabled)
+    {
+        options.MaxAge = TimeSpan.FromDays(hstsOptions.MaxAgeDays);
+        options.IncludeSubDomains = hstsOptions.IncludeSubDomains;
+        options.Preload = hstsOptions.Preload;
+    }
+});
 builder.Services.AddSingleton<IClientIpResolver>(_ => new ForwardedHeadersClientIpResolver(gatewayOptions.TrustedProxies.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
 
 builder.Services.AddHttpClient<IProxyService, HttpClientProxyService>((serviceProvider, client) =>
@@ -213,6 +235,42 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("DevelopmentCors");
+
+if (forwardedHeadersSettings.Enabled && forwardedHeadersSettings.ForwardHeaders)
+{
+    var forwardedHeadersOptions = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+    };
+
+    foreach (var proxy in forwardedHeadersSettings.KnownProxies)
+    {
+        if (System.Net.IPAddress.TryParse(proxy, out var ip))
+        {
+            forwardedHeadersOptions.KnownProxies.Add(ip);
+        }
+    }
+
+    foreach (var network in forwardedHeadersSettings.KnownNetworks)
+    {
+        var parts = network.Split('/');
+        if (parts.Length == 2 &&
+            System.Net.IPAddress.TryParse(parts[0], out var ip) &&
+            int.TryParse(parts[1], out var prefix))
+        {
+            forwardedHeadersOptions.KnownNetworks.Add(new Microsoft.AspNetCore.HttpOverrides.IPNetwork(ip, prefix));
+        }
+    }
+
+    app.UseForwardedHeaders(forwardedHeadersOptions);
+}
+
+if (!app.Environment.IsDevelopment() && hstsOptions.Enabled)
+{
+    app.UseHsts();
+}
+
+app.UseMiddleware<SecurityHeadersMiddleware>();
 
 app.UseMiddleware<GatewayMiddleware>();
 

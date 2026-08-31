@@ -14,5 +14,9 @@ RUN dotnet publish "src/SecurityGateway.Api/SecurityGateway.Api.csproj" -c Relea
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
-RUN apk add --no-cache wget
+RUN apk add --no-cache wget && \
+    addgroup -g 1000 appgroup && \
+    adduser -u 1000 -G appgroup -s /bin/sh -D appuser && \
+    chown -R appuser:appgroup /app
+USER appuser
 ENTRYPOINT ["dotnet", "SecurityGateway.Api.dll"]

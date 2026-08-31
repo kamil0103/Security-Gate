@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using SecurityGateway.Application.Health;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.RateLimiting;
 using SecurityGateway.Infrastructure.Persistence;
@@ -58,6 +59,29 @@ public class TestWebApplicationFactory : WebApplicationFactory<Program>
             }
 
             services.AddSingleton<IRateLimitStore, InMemoryRateLimitStore>();
+
+            // Replace the health check service so tests do not require Postgres/Redis.
+            var healthDescriptor = services.SingleOrDefault(d => d.ServiceType == typeof(IHealthCheckService));
+            if (healthDescriptor is not null)
+            {
+                services.Remove(healthDescriptor);
+            }
+
+            services.AddSingleton<IHealthCheckService, FakeHealthCheckService>();
+        });
+    }
+}
+
+internal sealed class FakeHealthCheckService : IHealthCheckService
+{
+    public Task<HealthCheckResult> CheckAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.FromResult(new HealthCheckResult
+        {
+            Status = "Healthy",
+            PostgresConnected = true,
+            RedisConnected = true,
+            Timestamp = DateTimeOffset.UtcNow
         });
     }
 }

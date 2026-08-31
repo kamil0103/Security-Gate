@@ -210,13 +210,20 @@
 
 **Milestone:** The gateway records a searchable audit trail of security-relevant administrative and authentication actions.
 
-## Phase 16 — Production Hardening
+## Phase 16 — Production Hardening ✅
 
-- Security testing
-- Penetration testing
-- Docker hardening
-- Backup/recovery
-- Fail-closed validation
+- `SecurityHeadersMiddleware` adding X-Content-Type-Options, X-Frame-Options, X-XSS-Protection, Referrer-Policy, CSP, Permissions-Policy
+- `ForwardedHeadersSettings` and `HstsOptions` with configuration-bound middleware
+- Hardened Dockerfiles (non-root users, minimal Alpine images)
+- Hardened `docker-compose.yml`:
+  - Non-root users, read-only root filesystems, tmpfs mounts
+  - `no-new-privileges`, dropped capabilities, resource limits
+  - Health checks and dependency conditions
+- Postgres backup (`scripts/backup-postgres.sh`) and restore (`scripts/restore-postgres.sh`) scripts
+- Fail-closed validation in `GatewayMiddleware` when no upstream URL is configured
+- Unit and integration tests for security headers and fail-closed behavior
+
+**Milestone:** The deployment is hardened with security headers, least-privilege containers, resource limits, backups, and explicit fail-closed behavior.
 
 ## Phase 17 — V3 Advanced Security
 

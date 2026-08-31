@@ -144,7 +144,15 @@ public sealed class GatewayMiddleware
             ClientIp = clientIpResult.ClientIp
         };
 
-        var upstreamUrl = application?.UpstreamUrl;
+        var upstreamUrl = application?.UpstreamUrl ?? _options.UpstreamNpmUrl;
+
+        if (string.IsNullOrWhiteSpace(upstreamUrl))
+        {
+            context.Response.StatusCode = StatusCodes.Status502BadGateway;
+            await context.Response.WriteAsync("No upstream configured for the requested host.", context.RequestAborted).ConfigureAwait(false);
+            return;
+        }
+
         using var proxyResponse = await _proxyService.ForwardAsync(proxyRequest, upstreamUrl, context.RequestAborted).ConfigureAwait(false);
 
         context.Response.StatusCode = proxyResponse.StatusCode;
