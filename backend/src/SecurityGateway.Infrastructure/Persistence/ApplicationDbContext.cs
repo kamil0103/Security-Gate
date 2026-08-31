@@ -31,6 +31,8 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
     public DbSet<TrustedNetwork> TrustedNetworks => Set<TrustedNetwork>();
     public DbSet<BlocklistEntry> BlocklistEntries => Set<BlocklistEntry>();
     public DbSet<AccessDecision> AccessDecisions => Set<AccessDecision>();
+    public DbSet<AccessRequest> AccessRequests => Set<AccessRequest>();
+    public DbSet<TrustRecord> TrustRecords => Set<TrustRecord>();
     public DbSet<ApplicationEntity> Applications => Set<ApplicationEntity>();
     public DbSet<ApplicationPolicyEntity> ApplicationPolicies => Set<ApplicationPolicyEntity>();
     public DbSet<RateLimitRule> RateLimitRules => Set<RateLimitRule>();
@@ -147,6 +149,57 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.Type, e.TargetId });
             entity.Property(e => e.Reason).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<AccessRequest>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.PublicId).IsUnique();
+            entity.HasIndex(e => new { e.ApplicationId, e.ClientIp, e.DeviceFingerprint, e.SessionId, e.Status });
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.ExpiresAt);
+            entity.Property(e => e.PublicId).HasMaxLength(16);
+            entity.Property(e => e.HttpMethod).HasMaxLength(16);
+            entity.Property(e => e.RequestedPath).HasMaxLength(2000);
+            entity.Property(e => e.QueryString).HasMaxLength(2000);
+            entity.Property(e => e.ClientIp).HasMaxLength(64);
+            entity.Property(e => e.DeviceFingerprint).HasMaxLength(256);
+            entity.Property(e => e.DeviceName).HasMaxLength(100);
+            entity.Property(e => e.DeviceId).HasMaxLength(128);
+            entity.Property(e => e.SessionId).HasMaxLength(128);
+            entity.Property(e => e.UserAgent).HasMaxLength(512);
+            entity.Property(e => e.Browser).HasMaxLength(100);
+            entity.Property(e => e.OperatingSystem).HasMaxLength(100);
+            entity.Property(e => e.Country).HasMaxLength(100);
+            entity.Property(e => e.CountryCode).HasMaxLength(8);
+            entity.Property(e => e.Region).HasMaxLength(100);
+            entity.Property(e => e.City).HasMaxLength(100);
+            entity.Property(e => e.Asn).HasMaxLength(64);
+            entity.Property(e => e.Isp).HasMaxLength(200);
+            entity.Property(e => e.ThreatLevel).HasMaxLength(32);
+            entity.Property(e => e.ReasonForChallenge).HasMaxLength(500);
+            entity.Property(e => e.ResolutionReason).HasMaxLength(500);
+            entity.Property(e => e.Status).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.Decision).HasConversion<string>().HasMaxLength(32);
+            entity.Property(e => e.ApprovalScope).HasConversion<string>().HasMaxLength(32);
+            entity.HasOne(e => e.Application).WithMany().HasForeignKey(e => e.ApplicationId);
+            entity.HasOne(e => e.IpAddress).WithMany().HasForeignKey(e => e.IpAddressId);
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
+            entity.HasOne(e => e.ReviewedByUser).WithMany().HasForeignKey(e => e.ReviewedByUserId);
+        });
+
+        modelBuilder.Entity<TrustRecord>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.ApplicationId, e.ClientIp, e.DeviceFingerprint, e.UserId, e.SessionId, e.IsRevoked });
+            entity.HasIndex(e => e.ExpiresAt);
+            entity.Property(e => e.ClientIp).HasMaxLength(64);
+            entity.Property(e => e.DeviceFingerprint).HasMaxLength(256);
+            entity.Property(e => e.SessionId).HasMaxLength(128);
+            entity.Property(e => e.Scope).HasConversion<string>().HasMaxLength(32);
+            entity.HasOne(e => e.Application).WithMany().HasForeignKey(e => e.ApplicationId);
+            entity.HasOne(e => e.User).WithMany().HasForeignKey(e => e.UserId);
+            entity.HasOne(e => e.AccessRequest).WithMany(e => e.TrustRecords).HasForeignKey(e => e.AccessRequestId);
         });
 
         modelBuilder.Entity<ApplicationEntity>(entity =>

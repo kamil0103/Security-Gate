@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using SecurityGateway.Api.Middleware;
 using SecurityGateway.Application.AccessControl;
+using SecurityGateway.Application.AccessControl.Models;
 using SecurityGateway.Application.Applications;
+using SecurityGateway.Application.Audit;
 using SecurityGateway.Application.Blocking;
 using SecurityGateway.Application.Blocking.DTOs;
 using SecurityGateway.Application.Gateway;
@@ -30,8 +32,10 @@ public class GatewayMiddlewareTests
             null,
             CreateApplicationPolicyService(),
             CreateAccessControlService(),
+            CreateAccessRequestService(),
             CreateRateLimitService(),
             CreateAutomaticBlockingService(),
+            CreateAuditService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -58,8 +62,10 @@ public class GatewayMiddlewareTests
             null,
             CreateApplicationPolicyService(),
             CreateAccessControlService(),
+            CreateAccessRequestService(),
             CreateRateLimitService(),
             CreateAutomaticBlockingService(),
+            CreateAuditService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -129,6 +135,52 @@ public class GatewayMiddlewareTests
     private static IAutomaticBlockingService CreateAutomaticBlockingService()
     {
         return new FakeAutomaticBlockingService();
+    }
+
+    private static IAccessRequestService CreateAccessRequestService()
+    {
+        return new FakeAccessRequestService();
+    }
+
+    private static IAuditService CreateAuditService()
+    {
+        return new FakeAuditService();
+    }
+
+    private sealed class FakeAccessRequestService : IAccessRequestService
+    {
+        public Task<AccessEvaluationResult> EvaluateAccessAsync(AccessEvaluationContext context, CancellationToken cancellationToken = default)
+            => Task.FromResult(new AccessEvaluationResult { Decision = AccessEvaluationDecision.Allow });
+
+        public Task<Application.AccessControl.DTOs.AccessRequestDto?> GetByPublicIdAsync(string publicId, CancellationToken cancellationToken = default)
+            => Task.FromResult<Application.AccessControl.DTOs.AccessRequestDto?>(null);
+
+        public Task<Application.AccessControl.DTOs.AccessRequestStatusDto> GetStatusAsync(string publicId, CancellationToken cancellationToken = default)
+            => Task.FromResult(new Application.AccessControl.DTOs.AccessRequestStatusDto { PublicId = publicId, Status = "Pending", ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30) });
+
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.AccessRequestDto>> GetPendingAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.AccessRequestDto>>(Array.Empty<Application.AccessControl.DTOs.AccessRequestDto>());
+
+        public Task<IReadOnlyList<Application.AccessControl.DTOs.AccessRequestDto>> GetRecentAsync(int count, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<Application.AccessControl.DTOs.AccessRequestDto>>(Array.Empty<Application.AccessControl.DTOs.AccessRequestDto>());
+
+        public Task<Application.AccessControl.DTOs.AccessRequestDto> ResolveAsync(Guid accessRequestId, Guid adminUserId, Application.AccessControl.DTOs.ResolveAccessRequestRequest request, CancellationToken cancellationToken = default)
+            => throw new NotImplementedException();
+
+        public Task RevokeTrustAsync(Guid trustRecordId, Guid adminUserId, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
+
+    private sealed class FakeAuditService : IAuditService
+    {
+        public Task LogAsync(SecurityGateway.Domain.Audit.AuditCategory category, string action, Guid? userId = null, string? username = null, string? ipAddress = null, string? details = null, bool success = true, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<IReadOnlyList<SecurityGateway.Application.Audit.DTOs.AuditLogDto>> SearchAsync(SecurityGateway.Application.Audit.DTOs.AuditLogFilterRequest filter, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<SecurityGateway.Application.Audit.DTOs.AuditLogDto>>(Array.Empty<SecurityGateway.Application.Audit.DTOs.AuditLogDto>());
+
+        public Task<long> CountAsync(SecurityGateway.Application.Audit.DTOs.AuditLogFilterRequest filter, CancellationToken cancellationToken = default)
+            => Task.FromResult(0L);
     }
 
     private sealed class FakeApplicationPolicyService : IApplicationPolicyService
@@ -241,8 +293,10 @@ public class GatewayMiddlewareTests
             null,
             CreateApplicationPolicyService(),
             CreateAccessControlService(),
+            CreateAccessRequestService(),
             CreateRateLimitService(),
             CreateAutomaticBlockingService(),
+            CreateAuditService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 

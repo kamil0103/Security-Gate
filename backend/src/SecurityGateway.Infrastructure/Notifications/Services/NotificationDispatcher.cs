@@ -80,4 +80,45 @@ public class NotificationDispatcher : INotificationDispatcher
 
         await _context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
+
+    public async Task DispatchAsync(NotificationMessage message, CancellationToken cancellationToken = default)
+    {
+        var channels = await _channelRepository.GetEnabledAsync(cancellationToken).ConfigureAwait(false);
+
+        foreach (var channel in channels)
+        {
+            var provider = _providers.FirstOrDefault(p => p.CanHandle(channel.Type));
+            if (provider is null)
+            {
+                continue;
+            }
+
+            var log = new NotificationLog
+            {
+                ChannelId = channel.Id,
+                ChannelType = channel.Type,
+                Recipient = channel.Name,
+                Subject = message.Title,
+                Body = message.Body,
+                Status = NotificationStatus.Pending
+            };
+
+            await _logRepository.AddAsync(log, cancellationToken).ConfigureAwait(false);
+
+            try
+            {
+                await provider.SendAsync(channel, message, cancellationToken).ConfigureAwait(false);
+
+                log.Status = NotificationStatus.Sent;
+                log.SentAt = DateTimeOffset.UtcNow;
+            }
+            catch (Exception ex)
+            {
+                log.Status = NotificationStatus.Failed;
+                log.ErrorMessage = ex.Message;
+            }
+        }
+
+        await _context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

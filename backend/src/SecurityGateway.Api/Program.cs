@@ -162,15 +162,18 @@ builder.Services.AddScoped<IDeviceRepository, DeviceRepository>();
 builder.Services.AddScoped<ITokenRepository, TokenRepository>();
 builder.Services.AddScoped<IIpAddressRepository, IpAddressRepository>();
 builder.Services.AddScoped<ITrustedNetworkRepository, TrustedNetworkRepository>();
-builder.Services.AddScoped<IBlocklistRepository, BlocklistRepository>();
-builder.Services.AddScoped<IAccessDecisionRepository, AccessDecisionRepository>();
+    builder.Services.AddScoped<IBlocklistRepository, BlocklistRepository>();
+    builder.Services.AddScoped<IAccessDecisionRepository, AccessDecisionRepository>();
+    builder.Services.AddScoped<IAccessRequestRepository, AccessRequestRepository>();
+    builder.Services.AddScoped<ITrustRecordRepository, TrustRecordRepository>();
 
 // Identity services
 builder.Services.AddScoped<IDeviceIdentityService, DeviceIdentityService>();
 builder.Services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
 
 // Access control services
-builder.Services.AddScoped<IAccessControlService, AccessControlService>();
+    builder.Services.AddScoped<IAccessControlService, AccessControlService>();
+    builder.Services.AddScoped<IAccessRequestService, AccessRequestService>();
 
 // Application policy services
 builder.Services.AddScoped<IApplicationRepository, ApplicationRepository>();
