@@ -1,44 +1,112 @@
-import { Link, Route, Routes } from 'react-router-dom'
+import { Link, Route, Routes, useNavigate } from 'react-router-dom'
 import './styles.css'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import { RequireAuth } from './components/RequireAuth'
 import { DashboardPage } from './pages/DashboardPage'
 import { HealthPage } from './pages/HealthPage'
 import { IpExplorerPage } from './pages/IpExplorerPage'
+import { LoginPage } from './pages/LoginPage'
 import { MapPage } from './pages/MapPage'
 
-function App() {
+function Header() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/login')
+  }
+
   return (
-    <div className="container">
-      <header className="header">
+    <header className="header">
+      <div>
         <h1>Security Gateway</h1>
         <p className="subtitle">Self-hosted security gateway for Unraid</p>
-      </header>
+      </div>
+      {user && (
+        <div className="user-menu">
+          <span>{user.username}</span>
+          <button onClick={handleLogout} className="button secondary">
+            Logout
+          </button>
+        </div>
+      )}
+    </header>
+  )
+}
 
-      <nav className="nav">
-        <Link className="nav-link" to="/">
-          Dashboard
-        </Link>
-        <Link className="nav-link" to="/map">
-          Map
-        </Link>
-        <Link className="nav-link" to="/ip-explorer">
-          IP Explorer
-        </Link>
-        <Link className="nav-link" to="/health">
-          Health
-        </Link>
-      </nav>
+function Layout() {
+  const { user } = useAuth()
+
+  return (
+    <div className="container">
+      <Header />
+
+      {user && (
+        <nav className="nav">
+          <Link className="nav-link" to="/">
+            Dashboard
+          </Link>
+          <Link className="nav-link" to="/map">
+            Map
+          </Link>
+          <Link className="nav-link" to="/ip-explorer">
+            IP Explorer
+          </Link>
+          <Link className="nav-link" to="/health">
+            Health
+          </Link>
+        </nav>
+      )}
 
       <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/map" element={<MapPage />} />
-        <Route path="/ip-explorer" element={<IpExplorerPage />} />
-        <Route path="/health" element={<HealthPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route
+          path="/"
+          element={
+            <RequireAuth>
+              <DashboardPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/map"
+          element={
+            <RequireAuth>
+              <MapPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/ip-explorer"
+          element={
+            <RequireAuth>
+              <IpExplorerPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/health"
+          element={
+            <RequireAuth>
+              <HealthPage />
+            </RequireAuth>
+          }
+        />
       </Routes>
 
       <footer className="footer">
-        <p>Phase 13 milestone — global map</p>
+        <p>Security Gateway v1.0</p>
       </footer>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <Layout />
+    </AuthProvider>
   )
 }
 
