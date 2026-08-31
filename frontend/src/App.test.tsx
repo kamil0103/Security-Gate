@@ -23,9 +23,25 @@ const mockOverview = {
 }
 
 describe('App', () => {
+  const mockUser = {
+    id: '00000000-0000-0000-0000-000000000000',
+    username: 'admin',
+    email: 'admin@example.com',
+    role: 1,
+    emailVerified: true,
+  }
+
   beforeEach(() => {
+    localStorage.setItem('sg_access_token', 'fake-token')
+    localStorage.setItem('sg_refresh_token', 'fake-refresh')
+    localStorage.setItem('sg_expires_at', new Date(Date.now() + 3600000).toISOString())
+
     vi.spyOn(global, 'fetch').mockImplementation((url) => {
       const path = url.toString()
+
+      if (path.includes('/api/auth/me')) {
+        return Promise.resolve(new Response(JSON.stringify(mockUser), { status: 200 }))
+      }
 
       if (path.includes('/api/health')) {
         return Promise.resolve(new Response(JSON.stringify(mockHealth), { status: 200 }))
