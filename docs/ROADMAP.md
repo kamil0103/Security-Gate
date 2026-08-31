@@ -251,3 +251,49 @@
 - Unit tests for `CloudflareIpService` and `CloudflareClientIpResolver`
 
 **Milestone:** The gateway correctly identifies Cloudflare-proxied traffic, restores the real client IP from Cloudflare headers, and enforces Cloudflare-specific application policies.
+
+## Phase 19 — Access Approval Workflow ✅
+
+- `AccessRequest` and `TrustRecord` entities for explicit access grants
+- `AccessRequestStatus`, `AccessRequestDecision`, `ApprovalScope`, and `TrustScope` enums
+- `IAccessRequestService` / `AccessRequestService` with `Allow`, `Challenge`, `Deny`, and `Block` decisions
+- `GatewayMiddleware` integration:
+  - Creates/reuses pending access requests
+  - Returns a user-facing challenge page with request ID and polling
+  - Sets `sg_session` correlation cookie
+  - Allows approved sessions through and blocks denied/blocked requests
+- `AccessRequestsController` with admin-only pending/recent/status/resolve endpoints
+- Trusted-admin context enforcement on approval endpoints
+- `INotificationDispatcher` integration for new pending access requests
+- React `ApprovalsPage` with Approve/Deny/Block IP/Block Device actions and scope selection
+- Backend unit test for challenge-page behavior and session cookie
+- End-to-end production verification: challenged → approved → allowed → new session challenged again
+- EF Core migration `AddAccessRequests`
+
+**Milestone:** Unauthenticated or untrusted users see a challenge page, administrators can approve/deny/block requests with scoped trust, and the gateway enforces the resulting access decision.
+
+## Phase 20 — Management UI, CloudflareMode & Inline WAF ✅
+
+- React management pages wired into the admin dashboard:
+  - `ApplicationsPage`: CRUD, enable/disable, inline policy editor
+  - `TrustedNetworksPage`: CIDR-based trusted networks for admin approvals
+  - `DevicesPage`: trust/untrust/block/remove own devices
+  - `NotificationsPage`: notification channel CRUD with JSON config and test sends
+  - `SecurityEventsPage`: filterable security event table
+  - `BlockIpPage`: manual IP block/unblock/check
+  - `AuditPage`: searchable, paginated audit log
+- `ApplicationCloudflareMode` enum (`Proxied` / `Direct`) added to `Application`
+- Backend support to create, update, and persist per-application `CloudflareMode`
+- Frontend selector in `ApplicationsPage`
+- EF Core migration `AddCloudflareMode`
+- `InlineWafMiddleware` with regex-based SQLi, XSS, and path-traversal detection
+- WAF event ingestion into `WafEventService` with attack classification
+- Configurable via `InlineWaf__Enabled` and `InlineWaf__LogOnly`
+- Production nginx hardening:
+  - Security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options, Referrer-Policy, X-Robots-Tag)
+  - `Cache-Control: no-store` on the admin SPA shell
+  - Authenticated Origin Pulls already enforced
+- Frontend container hardening: runs as non-root `nginx` user
+- `docker-compose.yml` updated to expose InlineWaf settings and remove frontend `user: root`
+
+**Milestone:** Administrators can manage applications, devices, networks, notifications, events, blocks, and audit logs from the UI; each app can declare a Cloudflare mode; and the gateway blocks common web attacks inline while logging them as WAF events.
