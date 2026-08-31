@@ -7,6 +7,7 @@ public sealed class Application
     public required string Domain { get; set; }
     public required string UpstreamUrl { get; set; }
     public bool IsEnabled { get; set; } = true;
+    public ApplicationCloudflareMode CloudflareMode { get; set; } = ApplicationCloudflareMode.Proxied;
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 
     public ApplicationPolicy? Policy { get; set; }

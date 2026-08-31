@@ -318,12 +318,15 @@ export async function resolveAccessRequest(
   return response.json()
 }
 
+export type ApplicationCloudflareMode = 'Proxied' | 'Direct'
+
 export interface Application {
   id: string
   name: string
   domain: string
   upstreamUrl: string
   isEnabled: boolean
+  cloudflareMode: ApplicationCloudflareMode
   createdAt: string
   policy?: ApplicationPolicy
 }
@@ -353,6 +356,7 @@ export interface UpdateApplicationRequest {
   domain: string
   upstreamUrl: string
   isEnabled: boolean
+  cloudflareMode: ApplicationCloudflareMode
 }
 
 export async function fetchApplications(): Promise<Application[]> {

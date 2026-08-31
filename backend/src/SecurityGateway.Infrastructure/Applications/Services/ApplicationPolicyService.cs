@@ -2,6 +2,7 @@ using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Applications.DTOs;
 using SecurityGateway.Application.Applications.Models;
 using SecurityGateway.Application.Identity;
+using SecurityGateway.Domain.Applications;
 using ApplicationEntity = SecurityGateway.Domain.Applications.Application;
 using ApplicationPolicyEntity = SecurityGateway.Domain.Applications.ApplicationPolicy;
 
@@ -93,6 +94,7 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
         application.Domain = request.Domain;
         application.UpstreamUrl = request.UpstreamUrl;
         application.IsEnabled = request.IsEnabled;
+        application.CloudflareMode = ParseCloudflareMode(request.CloudflareMode);
 
         await _applicationRepository.UpdateAsync(application, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
@@ -304,9 +306,20 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
             Domain = application.Domain,
             UpstreamUrl = application.UpstreamUrl,
             IsEnabled = application.IsEnabled,
+            CloudflareMode = application.CloudflareMode.ToString(),
             CreatedAt = application.CreatedAt,
             Policy = policy is not null ? MapPolicy(policy) : (application.Policy is not null ? MapPolicy(application.Policy) : null)
         };
+    }
+
+    private static ApplicationCloudflareMode ParseCloudflareMode(string value)
+    {
+        if (Enum.TryParse<ApplicationCloudflareMode>(value, true, out var mode))
+        {
+            return mode;
+        }
+
+        return ApplicationCloudflareMode.Proxied;
     }
 
     private static ApplicationPolicyDto MapPolicy(ApplicationPolicyEntity policy)

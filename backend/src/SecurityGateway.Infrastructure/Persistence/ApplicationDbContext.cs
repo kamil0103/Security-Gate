@@ -209,6 +209,7 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.Property(e => e.Name).HasMaxLength(100);
             entity.Property(e => e.Domain).HasMaxLength(253);
             entity.Property(e => e.UpstreamUrl).HasMaxLength(500);
+            entity.Property(e => e.CloudflareMode).HasConversion<string>().HasMaxLength(32);
         });
 
         modelBuilder.Entity<ApplicationPolicyEntity>(entity =>

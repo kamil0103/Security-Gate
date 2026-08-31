@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import {
   type Application,
   type ApplicationPolicy,
+  type ApplicationCloudflareMode,
   fetchApplications,
   createApplication,
   updateApplication,
@@ -76,6 +77,7 @@ export function ApplicationsPage() {
         domain: app.domain,
         upstreamUrl: app.upstreamUrl,
         isEnabled: app.isEnabled,
+        cloudflareMode: app.cloudflareMode,
       })
       setEditingId(null)
       await loadApplications()
@@ -184,6 +186,13 @@ export function ApplicationsPage() {
                     value={app.upstreamUrl}
                     onChange={(e) => updateAppField(app.id, 'upstreamUrl', e.target.value)}
                   />
+                  <select
+                    value={app.cloudflareMode}
+                    onChange={(e) => updateAppField(app.id, 'cloudflareMode', e.target.value as ApplicationCloudflareMode)}
+                  >
+                    <option value="Proxied">Proxied (Cloudflare)</option>
+                    <option value="Direct">Direct</option>
+                  </select>
                   <label className="checkbox">
                     <input
                       type="checkbox"
@@ -209,6 +218,7 @@ export function ApplicationsPage() {
                     <span className={`badge ${app.isEnabled ? 'success' : 'muted'}`}>
                       {app.isEnabled ? 'Enabled' : 'Disabled'}
                     </span>
+                    <span className="badge info">{app.cloudflareMode}</span>
                     {app.policy && (
                       <span className="badge info">
                         Auth: {app.policy.requireAuthentication ? 'required' : 'optional'}
