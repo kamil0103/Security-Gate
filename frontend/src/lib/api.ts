@@ -651,3 +651,109 @@ export async function testNotificationChannel(
     throw new Error(`Failed to send test notification: ${response.status}`)
   }
 }
+
+export type SecurityEventType =
+  | 'AuthenticationFailure'
+  | 'AccountLocked'
+  | 'RateLimitExceeded'
+  | 'WafEvent'
+  | 'AccessBlocked'
+  | 'UnknownDevice'
+  | 'NewDeviceFromUntrustedNetwork'
+  | 'IpReputationChanged'
+  | 'PolicyViolation'
+  | 'Custom'
+
+export type SecurityEventSeverity = 'Info' | 'Low' | 'Medium' | 'High' | 'Critical'
+
+export interface SecurityEvent {
+  id: string
+  timestamp: string
+  type: SecurityEventType
+  severity: SecurityEventSeverity
+  sourceIp: string
+  userId?: string
+  deviceId?: string
+  description?: string
+  relatedEntityType?: string
+  relatedEntityId?: string
+  createdAt: string
+}
+
+export interface SecurityEventFilter {
+  type?: SecurityEventType
+  severity?: SecurityEventSeverity
+  sourceIp?: string
+  from?: string
+  to?: string
+  skip?: number
+  take?: number
+}
+
+export async function fetchSecurityEvents(filter: SecurityEventFilter = {}): Promise<SecurityEvent[]> {
+  const params = new URLSearchParams()
+  if (filter.type) params.set('Type', filter.type)
+  if (filter.severity) params.set('Severity', filter.severity)
+  if (filter.sourceIp) params.set('SourceIp', filter.sourceIp)
+  if (filter.from) params.set('From', filter.from)
+  if (filter.to) params.set('To', filter.to)
+  if (filter.skip !== undefined) params.set('Skip', filter.skip.toString())
+  params.set('Take', (filter.take ?? 50).toString())
+
+  const response = await authFetch(`${API_BASE_URL}/api/securityevents?${params}`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load security events: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export interface BlockResult {
+  blocked: boolean
+  ipAddress: string
+  expiresAt?: string
+  reason?: string
+}
+
+export async function blockIp(
+  ipAddress: string,
+  durationMinutes?: number,
+  reason?: string
+): Promise<BlockResult> {
+  const response = await authFetch(`${API_BASE_URL}/api/blocking/block`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ipAddress, durationMinutes, reason }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to block IP: ${response.status}`)
+  }
+
+  return response.json()
+}
+
+export async function unblockIp(ipAddress: string): Promise<void> {
+  const response = await authFetch(`${API_BASE_URL}/api/blocking/unblock`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ipAddress }),
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to unblock IP: ${response.status}`)
+  }
+}
+
+export async function isIpBlocked(ipAddress: string): Promise<{ ipAddress: string; isBlocked: boolean }> {
+  const response = await authFetch(
+    `${API_BASE_URL}/api/blocking/is-blocked?ipAddress=${encodeURIComponent(ipAddress)}`
+  )
+
+  if (!response.ok) {
+    throw new Error(`Failed to check block status: ${response.status}`)
+  }
+
+  return response.json()
+}

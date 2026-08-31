@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { RequireAuth } from './components/RequireAuth'
 import { ApplicationsPage } from './pages/ApplicationsPage'
 import { ApprovalsPage } from './pages/ApprovalsPage'
+import { BlockIpPage } from './pages/BlockIpPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { DevicesPage } from './pages/DevicesPage'
 import { HealthPage } from './pages/HealthPage'
@@ -11,6 +12,7 @@ import { IpExplorerPage } from './pages/IpExplorerPage'
 import { LoginPage } from './pages/LoginPage'
 import { MapPage } from './pages/MapPage'
 import { NotificationsPage } from './pages/NotificationsPage'
+import { SecurityEventsPage } from './pages/SecurityEventsPage'
 import { TrustedNetworksPage } from './pages/TrustedNetworksPage'
 
 function Header() {
@@ -66,6 +68,12 @@ function Layout() {
           </Link>
           <Link className="nav-link" to="/notifications">
             Alerts
+          </Link>
+          <Link className="nav-link" to="/security-events">
+            Events
+          </Link>
+          <Link className="nav-link" to="/block-ip">
+            Block
           </Link>
           <Link className="nav-link" to="/map">
             Map
@@ -126,6 +134,22 @@ function Layout() {
           element={
             <RequireAuth>
               <NotificationsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/security-events"
+          element={
+            <RequireAuth>
+              <SecurityEventsPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/block-ip"
+          element={
+            <RequireAuth>
+              <BlockIpPage />
             </RequireAuth>
           }
         />
