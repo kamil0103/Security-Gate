@@ -116,6 +116,11 @@ var cloudflareOptions = builder.Configuration.GetSection(CloudflareOptions.Secti
 
 builder.Services.AddSingleton(cloudflareOptions);
 
+var inlineWafOptions = builder.Configuration.GetSection(InlineWafOptions.SectionName).Get<InlineWafOptions>()
+    ?? new InlineWafOptions();
+
+builder.Services.AddSingleton(inlineWafOptions);
+
 builder.Services.AddHsts(options =>
 {
     if (hstsOptions.Enabled)
@@ -343,6 +348,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.UseMiddleware<SecurityHeadersMiddleware>();
+app.UseMiddleware<InlineWafMiddleware>();
 
 app.UseMiddleware<GatewayMiddleware>();
 
