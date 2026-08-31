@@ -347,7 +347,7 @@ public class GatewayMiddlewareTests
     private static async Task<string> ReadResponseBodyAsync(HttpContext context)
     {
         context.Response.Body.Position = 0;
-        using var reader = new StreamReader(context.Response.Body);
+        using var reader = new StreamReader(context.Response.Body, System.Text.Encoding.UTF8, leaveOpen: true);
         return await reader.ReadToEndAsync();
     }
 
