@@ -238,10 +238,16 @@
 
 **Milestone:** The gateway can consume external threat intelligence, detect behavioral anomalies, and has a foundation for WebAuthn passkeys and CrowdSec integration.
 
-## Phase 18 — Cloudflare
+## Phase 18 — Cloudflare ✅
 
-- Cloudflare integration
-- Real client IP handling
-- Per-application routing
-- Streaming bypass
-- Cloudflare-aware policies
+- `CloudflareOptions` configuration (`SecurityGateway:Cloudflare`)
+- `ICloudflareIpService` and `CloudflareIpService` with built-in IPv4 ranges
+- `CloudflareClientIpResolver` decorator for trusted Cloudflare proxy IP extraction (`CF-Connecting-IP`, `CF-Visitor-IP`)
+- Cloudflare header capture in `GatewayMiddleware.BuildClientIpContext`
+- Cloudflare-aware application policy fields: allowed/blocked Cloudflare countries and authentication bypass paths
+- Policy evaluation uses `CF-IPCountry` and request path for Cloudflare-aware rules
+- `CloudflareController` admin endpoints: status, refresh, IP check
+- EF Core migration `AddCloudflarePolicyFields`
+- Unit tests for `CloudflareIpService` and `CloudflareClientIpResolver`
+
+**Milestone:** The gateway correctly identifies Cloudflare-proxied traffic, restores the real client IP from Cloudflare headers, and enforces Cloudflare-specific application policies.

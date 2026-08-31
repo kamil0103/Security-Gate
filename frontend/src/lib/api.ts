@@ -1,3 +1,5 @@
+import { authFetch } from './auth'
+
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
 export interface HealthCheckResult {
@@ -8,7 +10,7 @@ export interface HealthCheckResult {
 }
 
 export async function fetchHealth(): Promise<HealthCheckResult> {
-  const response = await fetch(`${API_BASE_URL}/api/health`)
+  const response = await authFetch(`${API_BASE_URL}/api/health`)
 
   if (!response.ok) {
     throw new Error(`Health check failed: ${response.status} ${response.statusText}`)
@@ -61,7 +63,7 @@ export interface RecentEvent {
 }
 
 export async function fetchDashboardOverview(): Promise<DashboardOverview> {
-  const response = await fetch(`${API_BASE_URL}/api/dashboard/overview`)
+  const response = await authFetch(`${API_BASE_URL}/api/dashboard/overview`)
 
   if (!response.ok) {
     throw new Error(`Dashboard overview failed: ${response.status} ${response.statusText}`)
@@ -79,7 +81,7 @@ export async function fetchSecurityEventSeries(
     to: to.toISOString(),
   })
 
-  const response = await fetch(`${API_BASE_URL}/api/dashboard/security-events-series?${params}`)
+  const response = await authFetch(`${API_BASE_URL}/api/dashboard/security-events-series?${params}`)
 
   if (!response.ok) {
     throw new Error(`Security event series failed: ${response.status} ${response.statusText}`)
@@ -89,7 +91,7 @@ export async function fetchSecurityEventSeries(
 }
 
 export async function fetchTopThreats(limit = 10): Promise<TopThreat[]> {
-  const response = await fetch(`${API_BASE_URL}/api/dashboard/top-threats?limit=${limit}`)
+  const response = await authFetch(`${API_BASE_URL}/api/dashboard/top-threats?limit=${limit}`)
 
   if (!response.ok) {
     throw new Error(`Top threats failed: ${response.status} ${response.statusText}`)
@@ -99,7 +101,7 @@ export async function fetchTopThreats(limit = 10): Promise<TopThreat[]> {
 }
 
 export async function fetchTopAttacks(limit = 10): Promise<AttackTypeSummary[]> {
-  const response = await fetch(`${API_BASE_URL}/api/dashboard/top-attacks?limit=${limit}`)
+  const response = await authFetch(`${API_BASE_URL}/api/dashboard/top-attacks?limit=${limit}`)
 
   if (!response.ok) {
     throw new Error(`Top attacks failed: ${response.status} ${response.statusText}`)
@@ -109,7 +111,7 @@ export async function fetchTopAttacks(limit = 10): Promise<AttackTypeSummary[]> 
 }
 
 export async function fetchRecentEvents(limit = 20): Promise<RecentEvent[]> {
-  const response = await fetch(`${API_BASE_URL}/api/dashboard/recent-events?limit=${limit}`)
+  const response = await authFetch(`${API_BASE_URL}/api/dashboard/recent-events?limit=${limit}`)
 
   if (!response.ok) {
     throw new Error(`Recent events failed: ${response.status} ${response.statusText}`)
@@ -125,7 +127,7 @@ export async function fetchTimeline(from: Date, to: Date, limit = 50): Promise<R
     limit: limit.toString(),
   })
 
-  const response = await fetch(`${API_BASE_URL}/api/dashboard/timeline?${params}`)
+  const response = await authFetch(`${API_BASE_URL}/api/dashboard/timeline?${params}`)
 
   if (!response.ok) {
     throw new Error(`Timeline failed: ${response.status} ${response.statusText}`)
@@ -168,7 +170,7 @@ export async function fetchMapPoints(filter: MapFilter = {}): Promise<MapPoint[]
   if (filter.isBlocked !== undefined) params.set('isBlocked', filter.isBlocked.toString())
   if (filter.limit !== undefined) params.set('limit', filter.limit.toString())
 
-  const response = await fetch(`${API_BASE_URL}/api/map/points?${params}`)
+  const response = await authFetch(`${API_BASE_URL}/api/map/points?${params}`)
 
   if (!response.ok) {
     throw new Error(`Map points failed: ${response.status} ${response.statusText}`)
@@ -187,7 +189,7 @@ export async function fetchAttackPoints(filter: MapFilter = {}): Promise<MapPoin
   if (filter.isBlocked !== undefined) params.set('isBlocked', filter.isBlocked.toString())
   if (filter.limit !== undefined) params.set('limit', filter.limit.toString())
 
-  const response = await fetch(`${API_BASE_URL}/api/map/attacks?${params}`)
+  const response = await authFetch(`${API_BASE_URL}/api/map/attacks?${params}`)
 
   if (!response.ok) {
     throw new Error(`Attack points failed: ${response.status} ${response.statusText}`)
@@ -221,7 +223,7 @@ export interface IpDetails {
 }
 
 export async function fetchIpDetails(ipAddress: string): Promise<IpDetails> {
-  const response = await fetch(`${API_BASE_URL}/api/map/ip/${encodeURIComponent(ipAddress)}`)
+  const response = await authFetch(`${API_BASE_URL}/api/map/ip/${encodeURIComponent(ipAddress)}`)
 
   if (!response.ok) {
     throw new Error(`IP details failed: ${response.status} ${response.statusText}`)
@@ -231,7 +233,7 @@ export async function fetchIpDetails(ipAddress: string): Promise<IpDetails> {
 }
 
 export async function fetchMapCountries(): Promise<string[]> {
-  const response = await fetch(`${API_BASE_URL}/api/map/countries`)
+  const response = await authFetch(`${API_BASE_URL}/api/map/countries`)
 
   if (!response.ok) {
     throw new Error(`Countries failed: ${response.status} ${response.statusText}`)

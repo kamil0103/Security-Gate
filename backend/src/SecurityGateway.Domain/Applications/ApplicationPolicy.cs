@@ -14,5 +14,9 @@ public sealed class ApplicationPolicy
     public string AllowedIpAddresses { get; set; } = string.Empty;
     public string BlockedIpAddresses { get; set; } = string.Empty;
 
+    public string AllowedCloudflareCountries { get; set; } = string.Empty;
+    public string BlockedCloudflareCountries { get; set; } = string.Empty;
+    public string BypassAuthenticationPaths { get; set; } = string.Empty;
+
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 }

@@ -167,6 +167,9 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
             entity.Property(e => e.BlockedCountries).HasMaxLength(1000);
             entity.Property(e => e.AllowedIpAddresses).HasMaxLength(2000);
             entity.Property(e => e.BlockedIpAddresses).HasMaxLength(2000);
+            entity.Property(e => e.AllowedCloudflareCountries).HasMaxLength(1000);
+            entity.Property(e => e.BlockedCloudflareCountries).HasMaxLength(1000);
+            entity.Property(e => e.BypassAuthenticationPaths).HasMaxLength(2000);
         });
 
         modelBuilder.Entity<RateLimitRule>(entity =>

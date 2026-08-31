@@ -12,6 +12,7 @@ using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Audit;
 using SecurityGateway.Application.BehavioralAnalysis;
 using SecurityGateway.Application.Blocking;
+using SecurityGateway.Application.Cloudflare;
 using SecurityGateway.Application.CrowdSec;
 using SecurityGateway.Application.Dashboard;
 using SecurityGateway.Application.Identity;
@@ -40,6 +41,7 @@ using SecurityGateway.Infrastructure.Audit.Repositories;
 using SecurityGateway.Infrastructure.Audit.Services;
 using SecurityGateway.Infrastructure.BehavioralAnalysis.Services;
 using SecurityGateway.Infrastructure.Blocking.Services;
+using SecurityGateway.Infrastructure.Cloudflare;
 using SecurityGateway.Infrastructure.CrowdSec;
 using SecurityGateway.Infrastructure.Dashboard.Services;
 using SecurityGateway.Infrastructure.Map.Services;
@@ -109,6 +111,11 @@ var webAuthnOptions = builder.Configuration.GetSection(WebAuthnOptions.SectionNa
 
 builder.Services.AddSingleton(webAuthnOptions);
 
+var cloudflareOptions = builder.Configuration.GetSection(CloudflareOptions.SectionName).Get<CloudflareOptions>()
+    ?? new CloudflareOptions();
+
+builder.Services.AddSingleton(cloudflareOptions);
+
 builder.Services.AddHsts(options =>
 {
     if (hstsOptions.Enabled)
@@ -118,7 +125,12 @@ builder.Services.AddHsts(options =>
         options.Preload = hstsOptions.Preload;
     }
 });
-builder.Services.AddSingleton<IClientIpResolver>(_ => new ForwardedHeadersClientIpResolver(gatewayOptions.TrustedProxies.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)));
+builder.Services.AddSingleton<IClientIpResolver>(provider =>
+{
+    var inner = new ForwardedHeadersClientIpResolver(gatewayOptions.TrustedProxies.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+    var cloudflareIpService = provider.GetRequiredService<ICloudflareIpService>();
+    return new CloudflareClientIpResolver(inner, cloudflareIpService, cloudflareOptions);
+});
 
 builder.Services.AddHttpClient<IProxyService, HttpClientProxyService>((serviceProvider, client) =>
 {
@@ -128,6 +140,8 @@ builder.Services.AddHttpClient<IProxyService, HttpClientProxyService>((servicePr
 .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
 {
     UseProxy = false,
+    UseCookies = false,
+    AllowAutoRedirect = false,
     PooledConnectionLifetime = TimeSpan.FromMinutes(5)
 });
 
@@ -208,6 +222,9 @@ builder.Services.AddScoped<ICrowdSecClient, CrowdSecClient>();
 // WebAuthn
 builder.Services.AddScoped<IWebAuthnCredentialRepository, WebAuthnCredentialRepository>();
 builder.Services.AddScoped<IWebAuthnService, WebAuthnService>();
+
+// Cloudflare
+builder.Services.AddSingleton<ICloudflareIpService, CloudflareIpService>();
 
 // Notification repositories and service
 builder.Services.AddScoped<INotificationChannelRepository, NotificationChannelRepository>();

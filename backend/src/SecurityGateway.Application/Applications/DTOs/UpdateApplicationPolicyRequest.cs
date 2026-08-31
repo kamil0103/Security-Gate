@@ -8,4 +8,7 @@ public sealed record UpdateApplicationPolicyRequest
     public string BlockedCountries { get; init; } = string.Empty;
     public string AllowedIpAddresses { get; init; } = string.Empty;
     public string BlockedIpAddresses { get; init; } = string.Empty;
+    public string AllowedCloudflareCountries { get; init; } = string.Empty;
+    public string BlockedCloudflareCountries { get; init; } = string.Empty;
+    public string BypassAuthenticationPaths { get; init; } = string.Empty;
 }

@@ -28,6 +28,7 @@ public class HttpClientProxyServiceTests
             Method = "GET",
             Path = "/app",
             QueryString = "?foo=bar",
+            Host = "qbittorrent.toncom159.com",
             Headers = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase),
             Body = null,
             ClientIp = "198.51.100.1"
@@ -54,6 +55,7 @@ public class HttpClientProxyServiceTests
             Method = "GET",
             Path = "/app",
             QueryString = string.Empty,
+            Host = "toncom159.com",
             Headers = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase),
             Body = null,
             ClientIp = null
