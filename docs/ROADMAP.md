@@ -138,12 +138,18 @@
 
 **Milestone:** The gateway maintains a unified security event feed, applies behavioral threat scoring rules, and updates IP reputation automatically.
 
-## Phase 11 — Automatic Blocking
+## Phase 11 — Automatic Blocking ✅
 
-- Temporary and permanent blocks
-- Escalation
-- Manual controls
-- Block expiration and audit trail
+- `IAutomaticBlockingService` and `AutomaticBlockingOptions` for threshold-based auto-blocking
+- Automatic block decisions driven by threat score levels (medium, high, critical)
+- Temporary blocks with configurable durations and permanent manual blocks
+- Integration into the gateway middleware (returns 403 for blocked IPs)
+- Automatic blocking trigger from `ThreatDetectionService` when score thresholds are met
+- `BlockingController` for administrators to manually block/unblock IP addresses
+- `BlockResultDto`, `BlockIpRequest`, and `IsBlocked` query endpoints
+- Fixed blocklist repository tracking conflict for concurrent delete operations
+
+**Milestone:** The gateway automatically blocks malicious IPs based on threat scores and gives administrators manual block/unblock controls.
 
 ## Phase 12 — Dashboard
 

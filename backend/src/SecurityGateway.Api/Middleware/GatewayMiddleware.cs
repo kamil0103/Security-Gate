@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Applications;
+using SecurityGateway.Application.Blocking;
 using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.IpIntelligence;
 using SecurityGateway.Application.RateLimiting;
@@ -17,6 +18,7 @@ public sealed class GatewayMiddleware
     private readonly IApplicationPolicyService _applicationPolicyService;
     private readonly IAccessControlService _accessControlService;
     private readonly IRateLimitService _rateLimitService;
+    private readonly IAutomaticBlockingService _automaticBlockingService;
     private readonly GatewayOptions _options;
     private readonly ILogger<GatewayMiddleware> _logger;
 
@@ -28,6 +30,7 @@ public sealed class GatewayMiddleware
         IApplicationPolicyService applicationPolicyService,
         IAccessControlService accessControlService,
         IRateLimitService rateLimitService,
+        IAutomaticBlockingService automaticBlockingService,
         GatewayOptions options,
         ILogger<GatewayMiddleware> logger)
     {
@@ -38,6 +41,7 @@ public sealed class GatewayMiddleware
         _applicationPolicyService = applicationPolicyService;
         _accessControlService = accessControlService;
         _rateLimitService = rateLimitService;
+        _automaticBlockingService = automaticBlockingService;
         _options = options;
         _logger = logger;
     }
@@ -115,6 +119,15 @@ public sealed class GatewayMiddleware
             context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
             context.Response.Headers.RetryAfter = rateLimitResult.ResetAt.Subtract(DateTimeOffset.UtcNow).TotalSeconds.ToString("0");
             await context.Response.WriteAsync(rateLimitResult.Reason ?? "Rate limit exceeded.", context.RequestAborted).ConfigureAwait(false);
+            return;
+        }
+
+        var blockResult = await _automaticBlockingService.CheckAndBlockAsync(clientIpResult.ClientIp, cancellationToken: context.RequestAborted).ConfigureAwait(false);
+
+        if (blockResult is { Blocked: true })
+        {
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await context.Response.WriteAsync($"IP address is blocked. Reason: {blockResult.Reason}", context.RequestAborted).ConfigureAwait(false);
             return;
         }
 

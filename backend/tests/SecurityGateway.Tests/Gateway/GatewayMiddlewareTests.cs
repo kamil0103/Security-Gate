@@ -3,6 +3,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SecurityGateway.Api.Middleware;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Applications;
+using SecurityGateway.Application.Blocking;
+using SecurityGateway.Application.Blocking.DTOs;
 using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.RateLimiting;
 using SecurityGateway.Application.RateLimiting.Models;
@@ -28,6 +30,7 @@ public class GatewayMiddlewareTests
             CreateApplicationPolicyService(),
             CreateAccessControlService(),
             CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -55,6 +58,7 @@ public class GatewayMiddlewareTests
             CreateApplicationPolicyService(),
             CreateAccessControlService(),
             CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -119,6 +123,11 @@ public class GatewayMiddlewareTests
     private static IRateLimitService CreateRateLimitService()
     {
         return new FakeRateLimitService();
+    }
+
+    private static IAutomaticBlockingService CreateAutomaticBlockingService()
+    {
+        return new FakeAutomaticBlockingService();
     }
 
     private sealed class FakeApplicationPolicyService : IApplicationPolicyService
@@ -207,5 +216,20 @@ public class GatewayMiddlewareTests
 
         public Task DeleteRuleAsync(Guid id, CancellationToken cancellationToken = default)
             => Task.CompletedTask;
+    }
+
+    private sealed class FakeAutomaticBlockingService : IAutomaticBlockingService
+    {
+        public Task<BlockResultDto?> CheckAndBlockAsync(string ipAddress, int? threatScore = null, CancellationToken cancellationToken = default)
+            => Task.FromResult<BlockResultDto?>(null);
+
+        public Task<BlockResultDto> BlockAsync(string ipAddress, int? durationMinutes = null, string? reason = null, CancellationToken cancellationToken = default)
+            => Task.FromResult(new BlockResultDto { Blocked = true, IpAddress = ipAddress });
+
+        public Task UnblockAsync(string ipAddress, CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+
+        public Task<bool> IsBlockedAsync(string ipAddress, CancellationToken cancellationToken = default)
+            => Task.FromResult(false);
     }
 }
