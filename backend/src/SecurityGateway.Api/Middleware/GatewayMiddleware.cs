@@ -319,7 +319,7 @@ public sealed class GatewayMiddleware
             Path = "/",
             HttpOnly = true,
             Secure = true,
-            SameSite = SameSiteMode.Lax,
+            SameSite = SameSiteMode.None,
             Expires = DateTimeOffset.UtcNow.AddDays(1)
         };
 
