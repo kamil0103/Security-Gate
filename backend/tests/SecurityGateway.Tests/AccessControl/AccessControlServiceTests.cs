@@ -9,6 +9,7 @@ using SecurityGateway.Infrastructure.AccessControl.Services;
 using SecurityGateway.Infrastructure.Identity;
 using SecurityGateway.Infrastructure.Persistence;
 using SecurityGateway.Infrastructure.Persistence.Repositories;
+using SecurityGateway.Tests.Helpers;
 using SecurityGateway.Tests.TestHelpers;
 using Xunit;
 
@@ -39,6 +40,7 @@ public class AccessControlServiceTests : IDisposable
             accessDecisionRepository,
             deviceRepository,
             new FakeThreatDetectionService(),
+            new FakeAuditService(),
             _context);
     }
 

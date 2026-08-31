@@ -1,5 +1,7 @@
+using SecurityGateway.Application.Audit;
 using SecurityGateway.Application.Notifications;
 using SecurityGateway.Application.Notifications.DTOs;
+using SecurityGateway.Domain.Audit;
 using SecurityGateway.Domain.Notifications;
 using SecurityGateway.Domain.ThreatDetection;
 using SecurityGateway.Infrastructure.Persistence;
@@ -11,17 +13,20 @@ public class NotificationService : INotificationService
     private readonly INotificationChannelRepository _channelRepository;
     private readonly INotificationLogRepository _logRepository;
     private readonly IEnumerable<INotificationChannelProvider> _providers;
+    private readonly IAuditService _auditService;
     private readonly ApplicationDbContext _context;
 
     public NotificationService(
         INotificationChannelRepository channelRepository,
         INotificationLogRepository logRepository,
         IEnumerable<INotificationChannelProvider> providers,
+        IAuditService auditService,
         ApplicationDbContext context)
     {
         _channelRepository = channelRepository;
         _logRepository = logRepository;
         _providers = providers;
+        _auditService = auditService;
         _context = context;
     }
 
@@ -50,6 +55,16 @@ public class NotificationService : INotificationService
         await _channelRepository.AddAsync(channel, cancellationToken).ConfigureAwait(false);
         await _context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.Notification,
+            "CreateNotificationChannel",
+            null,
+            null,
+            null,
+            $"Created {channel.Type} notification channel {channel.Name}",
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return MapChannel(channel);
     }
 
@@ -66,6 +81,16 @@ public class NotificationService : INotificationService
         _channelRepository.Update(channel);
         await _context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.Notification,
+            "UpdateNotificationChannel",
+            null,
+            null,
+            null,
+            $"Updated {channel.Type} notification channel {channel.Name}",
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return MapChannel(channel);
     }
 
@@ -76,6 +101,16 @@ public class NotificationService : INotificationService
 
         _channelRepository.Delete(channel);
         await _context.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        await _auditService.LogAsync(
+            AuditCategory.Notification,
+            "DeleteNotificationChannel",
+            null,
+            null,
+            null,
+            $"Deleted {channel.Type} notification channel {channel.Name}",
+            true,
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task SendTestAsync(Guid channelId, SendTestNotificationRequest request, CancellationToken cancellationToken = default)

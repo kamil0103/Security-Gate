@@ -2,10 +2,12 @@ using System.Net;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.AccessControl.DTOs;
 using SecurityGateway.Application.AccessControl.Models;
+using SecurityGateway.Application.Audit;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Application.ThreatDetection;
 using SecurityGateway.Application.ThreatDetection.DTOs;
 using SecurityGateway.Domain.AccessControl;
+using SecurityGateway.Domain.Audit;
 using SecurityGateway.Domain.Identity;
 using SecurityGateway.Domain.ThreatDetection;
 
@@ -18,6 +20,7 @@ public sealed class AccessControlService : IAccessControlService
     private readonly IAccessDecisionRepository _accessDecisionRepository;
     private readonly IDeviceRepository _deviceRepository;
     private readonly IThreatDetectionService _threatDetectionService;
+    private readonly IAuditService _auditService;
     private readonly IUnitOfWork _unitOfWork;
 
     public AccessControlService(
@@ -26,6 +29,7 @@ public sealed class AccessControlService : IAccessControlService
         IAccessDecisionRepository accessDecisionRepository,
         IDeviceRepository deviceRepository,
         IThreatDetectionService threatDetectionService,
+        IAuditService auditService,
         IUnitOfWork unitOfWork)
     {
         _trustedNetworkRepository = trustedNetworkRepository;
@@ -33,6 +37,7 @@ public sealed class AccessControlService : IAccessControlService
         _accessDecisionRepository = accessDecisionRepository;
         _deviceRepository = deviceRepository;
         _threatDetectionService = threatDetectionService;
+        _auditService = auditService;
         _unitOfWork = unitOfWork;
     }
 
@@ -178,6 +183,16 @@ public sealed class AccessControlService : IAccessControlService
         await _trustedNetworkRepository.AddAsync(network, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.AccessControl,
+            "CreateTrustedNetwork",
+            null,
+            null,
+            null,
+            $"Created trusted network {network.Name} ({network.Cidr})",
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return MapTrustedNetwork(network);
     }
 
@@ -204,6 +219,16 @@ public sealed class AccessControlService : IAccessControlService
         await _trustedNetworkRepository.UpdateAsync(network, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.AccessControl,
+            "UpdateTrustedNetwork",
+            null,
+            null,
+            null,
+            $"Updated trusted network {network.Name} ({network.Cidr})",
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return MapTrustedNetwork(network);
     }
 
@@ -214,6 +239,16 @@ public sealed class AccessControlService : IAccessControlService
 
         await _trustedNetworkRepository.DeleteAsync(network, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        await _auditService.LogAsync(
+            AuditCategory.AccessControl,
+            "DeleteTrustedNetwork",
+            null,
+            null,
+            null,
+            $"Deleted trusted network {network.Name} ({network.Cidr})",
+            true,
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<IReadOnlyList<BlocklistEntryDto>> GetBlocklistEntriesAsync(CancellationToken cancellationToken = default)
@@ -254,6 +289,16 @@ public sealed class AccessControlService : IAccessControlService
         await _blocklistRepository.AddAsync(entry, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.AccessControl,
+            "CreateBlocklistEntry",
+            createdByUserId,
+            null,
+            null,
+            $"Created {entry.Type} blocklist entry {entry.Value}",
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return MapBlocklistEntry(entry);
     }
 
@@ -273,6 +318,16 @@ public sealed class AccessControlService : IAccessControlService
         await _blocklistRepository.UpdateAsync(entry, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.AccessControl,
+            "UpdateBlocklistEntry",
+            null,
+            null,
+            null,
+            $"Updated {entry.Type} blocklist entry {entry.Value}",
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return MapBlocklistEntry(entry);
     }
 
@@ -283,6 +338,16 @@ public sealed class AccessControlService : IAccessControlService
 
         await _blocklistRepository.DeleteAsync(entry, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        await _auditService.LogAsync(
+            AuditCategory.AccessControl,
+            "DeleteBlocklistEntry",
+            null,
+            null,
+            null,
+            $"Deleted {entry.Type} blocklist entry {entry.Value}",
+            true,
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<AccessDecisionDto> ApproveDeviceAsync(Guid deviceId, Guid adminUserId, string? reason = null, CancellationToken cancellationToken = default)
