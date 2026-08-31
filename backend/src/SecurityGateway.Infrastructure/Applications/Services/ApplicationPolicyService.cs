@@ -132,7 +132,10 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
                 AllowedCountries = request.AllowedCountries,
                 BlockedCountries = request.BlockedCountries,
                 AllowedIpAddresses = request.AllowedIpAddresses,
-                BlockedIpAddresses = request.BlockedIpAddresses
+                BlockedIpAddresses = request.BlockedIpAddresses,
+                AllowedCloudflareCountries = request.AllowedCloudflareCountries,
+                BlockedCloudflareCountries = request.BlockedCloudflareCountries,
+                BypassAuthenticationPaths = request.BypassAuthenticationPaths
             };
 
             await _policyRepository.AddAsync(policy, cancellationToken).ConfigureAwait(false);
@@ -145,6 +148,9 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
             policy.BlockedCountries = request.BlockedCountries;
             policy.AllowedIpAddresses = request.AllowedIpAddresses;
             policy.BlockedIpAddresses = request.BlockedIpAddresses;
+            policy.AllowedCloudflareCountries = request.AllowedCloudflareCountries;
+            policy.BlockedCloudflareCountries = request.BlockedCloudflareCountries;
+            policy.BypassAuthenticationPaths = request.BypassAuthenticationPaths;
 
             await _policyRepository.UpdateAsync(policy, cancellationToken).ConfigureAwait(false);
         }
@@ -154,7 +160,7 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
         return MapPolicy(policy);
     }
 
-    public async Task<ApplicationPolicyEvaluation> EvaluatePolicyAsync(Guid applicationId, string ipAddress, bool isAuthenticated, bool isIpTrusted, CancellationToken cancellationToken = default)
+    public async Task<ApplicationPolicyEvaluation> EvaluatePolicyAsync(Guid applicationId, string ipAddress, bool isAuthenticated, bool isIpTrusted, string? cloudflareCountry = null, string? path = null, CancellationToken cancellationToken = default)
     {
         var application = await _applicationRepository.GetByIdAsync(applicationId, cancellationToken).ConfigureAwait(false);
 
@@ -207,7 +213,31 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
             // Country-based blocking requires GeoIP data; placeholder for future integration.
         }
 
-        var requiresAuthentication = policy.RequireAuthentication && !(policy.AllowAnonymousFromTrustedNetworks && isIpTrusted);
+        if (!string.IsNullOrWhiteSpace(policy.BlockedCloudflareCountries) && !string.IsNullOrWhiteSpace(cloudflareCountry))
+        {
+            var blockedCountries = ParseList(policy.BlockedCloudflareCountries);
+
+            if (blockedCountries.Contains(cloudflareCountry))
+            {
+                return Deny("Country is blocked by Cloudflare application policy.", policy.RequireAuthentication, isAuthenticated);
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(policy.AllowedCloudflareCountries) && !string.IsNullOrWhiteSpace(cloudflareCountry))
+        {
+            var allowedCountries = ParseList(policy.AllowedCloudflareCountries);
+
+            if (!allowedCountries.Contains(cloudflareCountry))
+            {
+                return Deny("Country is not allowed by Cloudflare application policy.", policy.RequireAuthentication, isAuthenticated);
+            }
+        }
+
+        var bypassAuthentication = !string.IsNullOrWhiteSpace(policy.BypassAuthenticationPaths)
+            && !string.IsNullOrWhiteSpace(path)
+            && ParseList(policy.BypassAuthenticationPaths).Any(p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+
+        var requiresAuthentication = policy.RequireAuthentication && !(policy.AllowAnonymousFromTrustedNetworks && isIpTrusted) && !bypassAuthentication;
 
         if (requiresAuthentication && !isAuthenticated)
         {
@@ -290,7 +320,10 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
             AllowedCountries = policy.AllowedCountries,
             BlockedCountries = policy.BlockedCountries,
             AllowedIpAddresses = policy.AllowedIpAddresses,
-            BlockedIpAddresses = policy.BlockedIpAddresses
+            BlockedIpAddresses = policy.BlockedIpAddresses,
+            AllowedCloudflareCountries = policy.AllowedCloudflareCountries,
+            BlockedCloudflareCountries = policy.BlockedCloudflareCountries,
+            BypassAuthenticationPaths = policy.BypassAuthenticationPaths
         };
     }
 }

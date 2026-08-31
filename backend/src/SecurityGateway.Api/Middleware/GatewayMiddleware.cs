@@ -88,9 +88,11 @@ public sealed class GatewayMiddleware
         var isAuthenticated = context.User.Identity?.IsAuthenticated ?? false;
         var isIpTrusted = await _accessControlService.IsIpTrustedAsync(clientIpResult.ClientIp, context.RequestAborted).ConfigureAwait(false);
 
+        var cloudflareCountry = context.Request.Headers.GetCommaSeparatedValues("CF-IPCountry").FirstOrDefault();
+
         if (application is not null)
         {
-            var evaluation = await _applicationPolicyService.EvaluatePolicyAsync(application.Id, clientIpResult.ClientIp, isAuthenticated, isIpTrusted, context.RequestAborted).ConfigureAwait(false);
+            var evaluation = await _applicationPolicyService.EvaluatePolicyAsync(application.Id, clientIpResult.ClientIp, isAuthenticated, isIpTrusted, cloudflareCountry, path, context.RequestAborted).ConfigureAwait(false);
 
             if (!evaluation.Allowed)
             {
@@ -190,12 +192,21 @@ public sealed class GatewayMiddleware
     {
         var remoteIp = context.Connection.RemoteIpAddress?.ToString();
 
+        var additionalHeaders = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["CF-Connecting-IP"] = context.Request.Headers.GetCommaSeparatedValues("CF-Connecting-IP"),
+            ["CF-Visitor-IP"] = context.Request.Headers.GetCommaSeparatedValues("CF-Visitor-IP"),
+            ["CF-IPCountry"] = context.Request.Headers.GetCommaSeparatedValues("CF-IPCountry"),
+            ["CF-Ray"] = context.Request.Headers.GetCommaSeparatedValues("CF-Ray")
+        };
+
         return new ClientIpContext
         {
             RemoteIp = remoteIp,
             ForwardedFor = context.Request.Headers.GetCommaSeparatedValues("X-Forwarded-For"),
             RealIp = context.Request.Headers.GetCommaSeparatedValues("X-Real-IP"),
-            Forwarded = context.Request.Headers.GetCommaSeparatedValues("Forwarded")
+            Forwarded = context.Request.Headers.GetCommaSeparatedValues("Forwarded"),
+            AdditionalHeaders = additionalHeaders
         };
     }
 }

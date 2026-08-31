@@ -15,5 +15,5 @@ public interface IApplicationPolicyService
     Task<ApplicationPolicyDto?> GetPolicyAsync(Guid applicationId, CancellationToken cancellationToken = default);
     Task<ApplicationPolicyDto> UpdatePolicyAsync(Guid applicationId, UpdateApplicationPolicyRequest request, CancellationToken cancellationToken = default);
 
-    Task<ApplicationPolicyEvaluation> EvaluatePolicyAsync(Guid applicationId, string ipAddress, bool isAuthenticated, bool isIpTrusted, CancellationToken cancellationToken = default);
+    Task<ApplicationPolicyEvaluation> EvaluatePolicyAsync(Guid applicationId, string ipAddress, bool isAuthenticated, bool isIpTrusted, string? cloudflareCountry = null, string? path = null, CancellationToken cancellationToken = default);
 }
