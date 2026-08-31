@@ -49,7 +49,9 @@ public sealed class InlineWafMiddleware
         }
 
         var request = context.Request;
-        var input = $"{request.Method} {request.Path}{request.QueryString} {request.Headers.UserAgent}";
+        var rawPath = $"{request.Path}{request.QueryString}";
+        var decodedPath = Uri.UnescapeDataString(rawPath);
+        var input = $"{request.Method} {decodedPath} {request.Headers.UserAgent}";
 
         foreach (var rule in Rules)
         {
