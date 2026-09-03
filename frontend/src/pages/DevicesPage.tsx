@@ -55,8 +55,16 @@ export function DevicesPage() {
               <div className="row">
                 <div className="details">
                   <strong>{device.name}</strong>
+                  {device.userAgent && (
+                    <span className="meta" title={device.userAgent}>
+                      UA: {device.userAgent.length > 60 ? `${device.userAgent.slice(0, 60)}...` : device.userAgent}
+                    </span>
+                  )}
                   <span className="meta">
-                    {device.browser} {device.operatingSystem}
+                    {device.browser ?? 'Unknown browser'} {device.operatingSystem ? `on ${device.operatingSystem}` : ''}
+                  </span>
+                  <span className="meta" title={device.fingerprint}>
+                    Fingerprint: {device.fingerprint.slice(0, 16)}...
                   </span>
                   <span className="meta">Last seen: {new Date(device.lastSeenAt).toLocaleString()}</span>
                   <span className={`badge ${STATUS_COLORS[device.trustStatus] ?? 'muted'}`}>
