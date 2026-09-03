@@ -1,3 +1,4 @@
+using System.Net;
 using SecurityGateway.Application.AccessControl;
 using SecurityGateway.Application.Audit;
 using SecurityGateway.Application.Blocking;
@@ -13,6 +14,7 @@ public sealed class AutomaticBlockingService : IAutomaticBlockingService
 {
     private readonly IBlocklistRepository _blocklistRepository;
     private readonly IIpAddressRepository _ipAddressRepository;
+    private readonly ITrustedNetworkRepository _trustedNetworkRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly AutomaticBlockingOptions _options;
     private readonly IAuditService _auditService;
@@ -20,12 +22,14 @@ public sealed class AutomaticBlockingService : IAutomaticBlockingService
     public AutomaticBlockingService(
         IBlocklistRepository blocklistRepository,
         IIpAddressRepository ipAddressRepository,
+        ITrustedNetworkRepository trustedNetworkRepository,
         IUnitOfWork unitOfWork,
         AutomaticBlockingOptions options,
         IAuditService auditService)
     {
         _blocklistRepository = blocklistRepository;
         _ipAddressRepository = ipAddressRepository;
+        _trustedNetworkRepository = trustedNetworkRepository;
         _unitOfWork = unitOfWork;
         _options = options;
         _auditService = auditService;
@@ -34,6 +38,17 @@ public sealed class AutomaticBlockingService : IAutomaticBlockingService
     public async Task<BlockResultDto?> CheckAndBlockAsync(string ipAddress, int? threatScore = null, CancellationToken cancellationToken = default)
     {
         if (!_options.Enabled)
+        {
+            return null;
+        }
+
+        if (!IPAddress.TryParse(ipAddress, out var ip))
+        {
+            return null;
+        }
+
+        var trustedNetworks = await _trustedNetworkRepository.GetEnabledAsync(cancellationToken).ConfigureAwait(false);
+        if (trustedNetworks.Any(n => IsIpInNetwork(ip, n.Cidr)))
         {
             return null;
         }
@@ -138,5 +153,42 @@ public sealed class AutomaticBlockingService : IAutomaticBlockingService
     {
         var ip = await _ipAddressRepository.GetByIpAsync(ipAddress, cancellationToken).ConfigureAwait(false);
         return ip?.ThreatScore ?? 0;
+    }
+
+    private static bool IsIpInNetwork(IPAddress ip, string cidr)
+    {
+        if (!IPAddress.TryParse(cidr.Split('/')[0], out var networkAddress))
+        {
+            return false;
+        }
+
+        var prefixLength = cidr.Contains('/') && int.TryParse(cidr.Split('/')[1], out var length)
+            ? length
+            : (networkAddress.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork ? 32 : 128);
+
+        if (ip.AddressFamily != networkAddress.AddressFamily)
+        {
+            return false;
+        }
+
+        var ipBytes = ip.GetAddressBytes();
+        var networkBytes = networkAddress.GetAddressBytes();
+
+        for (int i = 0; i < ipBytes.Length; i++)
+        {
+            var bitsInByte = Math.Min(8, prefixLength - (i * 8));
+            if (bitsInByte <= 0)
+            {
+                break;
+            }
+
+            var mask = (byte)(0xFF << (8 - bitsInByte));
+            if ((ipBytes[i] & mask) != (networkBytes[i] & mask))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

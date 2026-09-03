@@ -40,15 +40,16 @@ public class AutomaticBlockingServiceTests : IDisposable
 
         var blocklistRepository = new BlocklistRepository(_context);
         var ipAddressRepository = new IpAddressRepository(_context);
+        var trustedNetworkRepository = new TrustedNetworkRepository(_context);
 
-        _service = new AutomaticBlockingService(blocklistRepository, ipAddressRepository, _context, _options, new FakeAuditService());
+        _service = new AutomaticBlockingService(blocklistRepository, ipAddressRepository, trustedNetworkRepository, _context, _options, new FakeAuditService());
     }
 
     [Fact]
     public async Task CheckAndBlockAsync_Disabled_ReturnsNull()
     {
         var options = new AutomaticBlockingOptions { Enabled = false };
-        var service = new AutomaticBlockingService(new BlocklistRepository(_context), new IpAddressRepository(_context), _context, options, new FakeAuditService());
+        var service = new AutomaticBlockingService(new BlocklistRepository(_context), new IpAddressRepository(_context), new TrustedNetworkRepository(_context), _context, options, new FakeAuditService());
 
         var result = await service.CheckAndBlockAsync("198.51.100.1", 100);
 

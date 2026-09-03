@@ -72,9 +72,11 @@ public sealed class AutomaticBlockingConcurrencyTests : IAsyncLifetime
                     await using var context = new ApplicationDbContext(options);
                     var repository = new BlocklistRepository(context);
                     var ipAddressRepository = new IpAddressRepository(context);
+                    var trustedNetworkRepository = new TrustedNetworkRepository(context);
                     var service = new AutomaticBlockingService(
                         repository,
                         ipAddressRepository,
+                        trustedNetworkRepository,
                         context,
                         blockingOptions,
                         new FakeAuditService());
