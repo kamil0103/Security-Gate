@@ -1,8 +1,10 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? ''
 
 const ACCESS_TOKEN_KEY = 'sg_access_token'
-const REFRESH_TOKEN_KEY = 'sg_refresh_token'
 const EXPIRES_AT_KEY = 'sg_expires_at'
+
+// The refresh token is stored in an HttpOnly Secure SameSite=Strict cookie by the backend.
+// It is never stored in localStorage, so it cannot be stolen by XSS.
 
 export interface TokenPair {
   accessToken: string
@@ -33,19 +35,14 @@ export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY)
 }
 
-export function getRefreshToken(): string | null {
-  return localStorage.getItem(REFRESH_TOKEN_KEY)
-}
-
 export function setTokens(tokens: TokenPair): void {
   localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken)
-  localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken)
   localStorage.setItem(EXPIRES_AT_KEY, tokens.accessTokenExpiresAt)
+  // The refresh token is intentionally omitted; the backend stores it in an HttpOnly cookie.
 }
 
 export function clearTokens(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
-  localStorage.removeItem(REFRESH_TOKEN_KEY)
   localStorage.removeItem(EXPIRES_AT_KEY)
 }
 
@@ -66,6 +63,7 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user: credentials }),
+    credentials: 'include',
   })
 
   if (!response.ok) {
@@ -79,13 +77,12 @@ export async function login(credentials: LoginCredentials): Promise<LoginResult>
 }
 
 export async function refreshTokens(): Promise<boolean> {
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) return false
-
   const response = await fetch(buildUrl('/api/auth/refresh'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken }),
+    // The refresh token is sent automatically in the HttpOnly cookie.
+    body: JSON.stringify({}),
+    credentials: 'include',
   })
 
   if (!response.ok) {
@@ -99,19 +96,17 @@ export async function refreshTokens(): Promise<boolean> {
 }
 
 export async function logout(): Promise<void> {
-  const refreshToken = getRefreshToken()
   clearTokens()
 
-  if (refreshToken) {
-    try {
-      await fetch(buildUrl('/api/auth/logout'), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
-      })
-    } catch {
-      // ignore
-    }
+  try {
+    await fetch(buildUrl('/api/auth/logout'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+      credentials: 'include',
+    })
+  } catch {
+    // ignore
   }
 }
 
@@ -141,9 +136,9 @@ export async function authFetch(input: RequestInfo, init: RequestInit = {}): Pro
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(input, { ...init, headers })
+  const response = await fetch(input, { ...init, headers, credentials: 'include' })
 
-  if (response.status === 401 && getRefreshToken()) {
+  if (response.status === 401) {
     const refreshed = await performRefresh()
     if (refreshed) {
       const newHeaders = new Headers(init.headers)

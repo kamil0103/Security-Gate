@@ -1,4 +1,5 @@
 using System.Net;
+using Microsoft.Extensions.Logging.Abstractions;
 using SecurityGateway.Application.Gateway;
 using SecurityGateway.Infrastructure.Gateway;
 using Xunit;
@@ -21,7 +22,7 @@ public class HttpClientProxyServiceTests
         });
 
         var client = new HttpClient(handler) { BaseAddress = new Uri("http://npm") };
-        var service = new HttpClientProxyService(client);
+        var service = new HttpClientProxyService(client, NullLogger<HttpClientProxyService>.Instance);
 
         var request = new ProxyRequestContext
         {
@@ -48,7 +49,7 @@ public class HttpClientProxyServiceTests
     {
         var handler = new TestHttpMessageHandler(_ => throw new HttpRequestException("Connection refused"));
         var client = new HttpClient(handler) { BaseAddress = new Uri("http://npm") };
-        var service = new HttpClientProxyService(client);
+        var service = new HttpClientProxyService(client, NullLogger<HttpClientProxyService>.Instance);
 
         var request = new ProxyRequestContext
         {

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Headers;
+using Microsoft.Extensions.Logging;
 using SecurityGateway.Application.Gateway;
 
 namespace SecurityGateway.Infrastructure.Gateway;
@@ -7,6 +8,7 @@ namespace SecurityGateway.Infrastructure.Gateway;
 public sealed class HttpClientProxyService : IProxyService
 {
     private readonly HttpClient _httpClient;
+    private readonly ILogger<HttpClientProxyService> _logger;
 
     private static readonly HashSet<string> HopByHopHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -20,11 +22,13 @@ public sealed class HttpClientProxyService : IProxyService
         "Upgrade"
     };
 
-    public HttpClientProxyService(HttpClient httpClient)
+    public HttpClientProxyService(HttpClient httpClient, ILogger<HttpClientProxyService> logger)
     {
         ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(logger);
 
         _httpClient = httpClient;
+        _logger = logger;
     }
 
     public async Task<ProxyResponse> ForwardAsync(ProxyRequestContext request, string? upstreamUrl = null, CancellationToken cancellationToken = default)
@@ -69,9 +73,10 @@ public sealed class HttpClientProxyService : IProxyService
             }
         }
 
+        HttpResponseMessage? upstreamResponse = null;
         try
         {
-            var upstreamResponse = await _httpClient.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            upstreamResponse = await _httpClient.SendAsync(upstreamRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
 
             var responseHeaders = new Dictionary<string, IEnumerable<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (var header in upstreamResponse.Headers)
@@ -94,11 +99,17 @@ public sealed class HttpClientProxyService : IProxyService
             {
                 StatusCode = (int)upstreamResponse.StatusCode,
                 Headers = responseHeaders,
-                Body = await upstreamResponse.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false)
+                Body = await upstreamResponse.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false),
+                UpstreamResponse = upstreamResponse
             };
         }
         catch (Exception ex)
         {
+            upstreamResponse?.Dispose();
+
+            // Do not expose raw upstream exception details to clients.
+            _logger.LogError(ex, "Upstream proxy request to {RequestUri} failed.", requestUri);
+
             return new ProxyResponse
             {
                 StatusCode = (int)HttpStatusCode.BadGateway,
@@ -106,7 +117,7 @@ public sealed class HttpClientProxyService : IProxyService
                 {
                     ["Content-Type"] = ["text/plain"]
                 },
-                Body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes($"Bad Gateway: {ex.Message}"))
+                Body = new MemoryStream(System.Text.Encoding.UTF8.GetBytes("Bad Gateway: the upstream service could not be reached."))
             };
         }
     }

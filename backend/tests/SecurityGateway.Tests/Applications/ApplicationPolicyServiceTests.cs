@@ -4,6 +4,7 @@ using SecurityGateway.Application.Applications.DTOs;
 using SecurityGateway.Infrastructure.Applications.Repositories;
 using SecurityGateway.Infrastructure.Applications.Services;
 using SecurityGateway.Infrastructure.Persistence;
+using SecurityGateway.Tests.Helpers;
 using Xunit;
 
 namespace SecurityGateway.Tests.Applications;
@@ -12,6 +13,7 @@ public class ApplicationPolicyServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly ApplicationPolicyService _service;
+    private readonly FakeAuditService _auditService;
 
     public ApplicationPolicyServiceTests()
     {
@@ -24,8 +26,9 @@ public class ApplicationPolicyServiceTests : IDisposable
 
         var appRepository = new ApplicationRepository(_context);
         var policyRepository = new ApplicationPolicyRepository(_context);
+        _auditService = new FakeAuditService();
 
-        _service = new ApplicationPolicyService(appRepository, policyRepository, _context);
+        _service = new ApplicationPolicyService(appRepository, policyRepository, _auditService, _context);
     }
 
     [Fact]
@@ -183,6 +186,26 @@ public class ApplicationPolicyServiceTests : IDisposable
         });
 
         Assert.False(policy.RequireAuthentication);
+    }
+
+    [Fact]
+    public async Task UpdatePolicyAsync_CreatesAuditLog()
+    {
+        var app = await _service.CreateApplicationAsync(new CreateApplicationRequest
+        {
+            Name = "Test",
+            Domain = "test.example.com",
+            UpstreamUrl = "http://localhost:3001"
+        });
+
+        await _service.UpdatePolicyAsync(app.Id, new UpdateApplicationPolicyRequest
+        {
+            RequireAuthentication = false,
+            AllowAnonymousFromTrustedNetworks = false
+        }, default, Guid.NewGuid());
+
+        // CreateApplicationAsync creates a default policy, so UpdatePolicyAsync updates it.
+        Assert.Contains(_auditService.Logs, e => e.Action == "ApplicationPolicyUpdated");
     }
 
     public void Dispose()

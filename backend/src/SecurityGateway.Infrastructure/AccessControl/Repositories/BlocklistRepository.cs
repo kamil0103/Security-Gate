@@ -9,6 +9,8 @@ public sealed class BlocklistRepository : IBlocklistRepository
 {
     private readonly ApplicationDbContext _context;
 
+    private const string PostgresProviderName = "Npgsql.EntityFrameworkCore.PostgreSQL";
+
     public BlocklistRepository(ApplicationDbContext context)
     {
         _context = context;
@@ -77,5 +79,40 @@ public sealed class BlocklistRepository : IBlocklistRepository
         }
 
         return Task.CompletedTask;
+    }
+
+    public async Task UpsertAsync(BlocklistEntry entry, CancellationToken cancellationToken = default)
+    {
+        if (_context.Database.ProviderName == PostgresProviderName)
+        {
+            // PostgreSQL-native atomic upsert. The unique index on (Type, Value) is the conflict target.
+            await _context.Database.ExecuteSqlInterpolatedAsync($@"
+                INSERT INTO ""BlocklistEntries"" (""Id"", ""Type"", ""Value"", ""Reason"", ""ExpiresAt"", ""IsEnabled"", ""CreatedByUserId"", ""CreatedAt"")
+                VALUES ({entry.Id}, {(int)entry.Type}, {entry.Value}, {entry.Reason}, {entry.ExpiresAt}, {entry.IsEnabled}, {entry.CreatedByUserId}, {entry.CreatedAt})
+                ON CONFLICT (""Type"", ""Value"")
+                DO UPDATE SET
+                    ""IsEnabled"" = EXCLUDED.""IsEnabled"",
+                    ""ExpiresAt"" = EXCLUDED.""ExpiresAt"",
+                    ""Reason"" = EXCLUDED.""Reason"";",
+                cancellationToken).ConfigureAwait(false);
+
+            return;
+        }
+
+        // Non-PostgreSQL fallback (e.g., in-memory EF tests) using the original check-then-update pattern.
+        var existing = await GetByTypeAndValueAsync(entry.Type, entry.Value, cancellationToken).ConfigureAwait(false);
+
+        if (existing is not null)
+        {
+            existing.IsEnabled = entry.IsEnabled;
+            existing.ExpiresAt = entry.ExpiresAt;
+            existing.Reason = entry.Reason;
+
+            await UpdateAsync(existing, cancellationToken).ConfigureAwait(false);
+        }
+        else
+        {
+            await AddAsync(entry, cancellationToken).ConfigureAwait(false);
+        }
     }
 }

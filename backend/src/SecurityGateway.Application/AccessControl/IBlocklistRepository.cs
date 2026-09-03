@@ -11,4 +11,12 @@ public interface IBlocklistRepository
     Task AddAsync(BlocklistEntry entry, CancellationToken cancellationToken = default);
     Task UpdateAsync(BlocklistEntry entry, CancellationToken cancellationToken = default);
     Task DeleteAsync(BlocklistEntry entry, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Inserts <paramref name="entry"/> if no row with the same (<see cref="BlocklistEntry.Type"/>, <see cref="BlocklistEntry.Value"/>)
+    /// exists; otherwise atomically updates the existing row's <see cref="BlocklistEntry.IsEnabled"/>,
+    /// <see cref="BlocklistEntry.ExpiresAt"/>, and <see cref="BlocklistEntry.Reason"/> to the values from <paramref name="entry"/>.
+    /// The operation is concurrency-safe on PostgreSQL.
+    /// </summary>
+    Task UpsertAsync(BlocklistEntry entry, CancellationToken cancellationToken = default);
 }

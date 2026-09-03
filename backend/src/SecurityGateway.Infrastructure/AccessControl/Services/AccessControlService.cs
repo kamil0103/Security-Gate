@@ -370,6 +370,16 @@ public sealed class AccessControlService : IAccessControlService
         await _accessDecisionRepository.AddAsync(decision, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
+        await _auditService.LogAsync(
+            AuditCategory.AccessControl,
+            "DeviceApproved",
+            adminUserId,
+            null,
+            null,
+            $"Device {deviceId} approved. Reason: {reason}",
+            true,
+            cancellationToken).ConfigureAwait(false);
+
         return MapAccessDecision(decision);
     }
 
@@ -392,6 +402,16 @@ public sealed class AccessControlService : IAccessControlService
 
         await _accessDecisionRepository.AddAsync(decision, cancellationToken).ConfigureAwait(false);
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        await _auditService.LogAsync(
+            AuditCategory.AccessControl,
+            "DeviceDenied",
+            adminUserId,
+            null,
+            null,
+            $"Device {deviceId} denied. Reason: {reason}",
+            true,
+            cancellationToken).ConfigureAwait(false);
 
         return MapAccessDecision(decision);
     }
@@ -448,15 +468,17 @@ public sealed class AccessControlService : IAccessControlService
 
     private static bool IsIpInNetwork(IPAddress ip, string cidr)
     {
-        if (!IPAddress.TryParse(cidr.Split('/')[0], out var networkIp))
+        var parts = cidr.Split('/');
+
+        if (parts.Length != 2 ||
+            !IPAddress.TryParse(parts[0], out var networkIp) ||
+            !int.TryParse(parts[1], out var prefixLength))
         {
             return false;
         }
 
-        if (!int.TryParse(cidr.Split('/')[1], out var prefixLength))
-        {
-            return false;
-        }
+        ip = NormalizeIp(ip);
+        networkIp = NormalizeIp(networkIp);
 
         var ipBytes = ip.GetAddressBytes();
         var networkBytes = networkIp.GetAddressBytes();
@@ -466,11 +488,27 @@ public sealed class AccessControlService : IAccessControlService
             return false;
         }
 
-        var mask = prefixLength == 0 ? 0 : uint.MaxValue << (32 - prefixLength);
+        var maxPrefix = ipBytes.Length * 8;
+        if (prefixLength < 0 || prefixLength > maxPrefix)
+        {
+            return false;
+        }
 
-        uint IpToUint(byte[] bytes) => ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
+        var bits = prefixLength;
+        for (var i = 0; i < ipBytes.Length && bits > 0; i++)
+        {
+            var maskBits = Math.Min(8, bits);
+            var mask = (byte)(0xFF << (8 - maskBits));
 
-        return (IpToUint(ipBytes) & mask) == (IpToUint(networkBytes) & mask);
+            if ((ipBytes[i] & mask) != (networkBytes[i] & mask))
+            {
+                return false;
+            }
+
+            bits -= maskBits;
+        }
+
+        return true;
     }
 
     private static bool IsValidCidr(string cidr)
@@ -482,12 +520,20 @@ public sealed class AccessControlService : IAccessControlService
             return false;
         }
 
-        if (!IPAddress.TryParse(parts[0], out _))
+        if (!IPAddress.TryParse(parts[0], out var ip))
         {
             return false;
         }
 
-        return int.TryParse(parts[1], out var prefix) && prefix is >= 0 and <= 32;
+        ip = NormalizeIp(ip);
+        var maxPrefix = ip.GetAddressBytes().Length * 8;
+
+        return int.TryParse(parts[1], out var prefix) && prefix >= 0 && prefix <= maxPrefix;
+    }
+
+    private static IPAddress NormalizeIp(IPAddress ip)
+    {
+        return ip.IsIPv4MappedToIPv6 ? ip.MapToIPv4() : ip;
     }
 
     private static TrustedNetworkDto MapTrustedNetwork(TrustedNetwork network)

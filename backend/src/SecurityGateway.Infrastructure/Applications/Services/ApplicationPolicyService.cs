@@ -1,8 +1,10 @@
 using SecurityGateway.Application.Applications;
 using SecurityGateway.Application.Applications.DTOs;
 using SecurityGateway.Application.Applications.Models;
+using SecurityGateway.Application.Audit;
 using SecurityGateway.Application.Identity;
 using SecurityGateway.Domain.Applications;
+using SecurityGateway.Domain.Audit;
 using ApplicationEntity = SecurityGateway.Domain.Applications.Application;
 using ApplicationPolicyEntity = SecurityGateway.Domain.Applications.ApplicationPolicy;
 
@@ -12,15 +14,18 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
 {
     private readonly IApplicationRepository _applicationRepository;
     private readonly IApplicationPolicyRepository _policyRepository;
+    private readonly IAuditService _auditService;
     private readonly IUnitOfWork _unitOfWork;
 
     public ApplicationPolicyService(
         IApplicationRepository applicationRepository,
         IApplicationPolicyRepository policyRepository,
+        IAuditService auditService,
         IUnitOfWork unitOfWork)
     {
         _applicationRepository = applicationRepository;
         _policyRepository = policyRepository;
+        _auditService = auditService;
         _unitOfWork = unitOfWork;
     }
 
@@ -117,12 +122,13 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
         return policy is null ? null : MapPolicy(policy);
     }
 
-    public async Task<ApplicationPolicyDto> UpdatePolicyAsync(Guid applicationId, UpdateApplicationPolicyRequest request, CancellationToken cancellationToken = default)
+    public async Task<ApplicationPolicyDto> UpdatePolicyAsync(Guid applicationId, UpdateApplicationPolicyRequest request, CancellationToken cancellationToken = default, Guid? adminUserId = null)
     {
         var application = await _applicationRepository.GetByIdAsync(applicationId, cancellationToken).ConfigureAwait(false)
             ?? throw new InvalidOperationException("Application not found.");
 
         var policy = await _policyRepository.GetByApplicationIdAsync(applicationId, cancellationToken).ConfigureAwait(false);
+        var isNew = policy is null;
 
         if (policy is null)
         {
@@ -158,6 +164,16 @@ public sealed class ApplicationPolicyService : IApplicationPolicyService
         }
 
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+
+        await _auditService.LogAsync(
+            AuditCategory.AccessControl,
+            isNew ? "ApplicationPolicyCreated" : "ApplicationPolicyUpdated",
+            adminUserId,
+            null,
+            null,
+            $"Application policy for {application.Domain} {(isNew ? "created" : "updated")}.",
+            true,
+            cancellationToken).ConfigureAwait(false);
 
         return MapPolicy(policy);
     }

@@ -13,7 +13,7 @@ public interface IApplicationPolicyService
     Task DeleteApplicationAsync(Guid id, CancellationToken cancellationToken = default);
 
     Task<ApplicationPolicyDto?> GetPolicyAsync(Guid applicationId, CancellationToken cancellationToken = default);
-    Task<ApplicationPolicyDto> UpdatePolicyAsync(Guid applicationId, UpdateApplicationPolicyRequest request, CancellationToken cancellationToken = default);
+    Task<ApplicationPolicyDto> UpdatePolicyAsync(Guid applicationId, UpdateApplicationPolicyRequest request, CancellationToken cancellationToken = default, Guid? adminUserId = null);
 
     Task<ApplicationPolicyEvaluation> EvaluatePolicyAsync(Guid applicationId, string ipAddress, bool isAuthenticated, bool isIpTrusted, string? cloudflareCountry = null, string? path = null, CancellationToken cancellationToken = default);
 }

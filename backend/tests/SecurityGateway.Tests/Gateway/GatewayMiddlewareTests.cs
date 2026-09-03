@@ -226,7 +226,7 @@ public class GatewayMiddlewareTests
         public Task<Application.Applications.DTOs.ApplicationPolicyDto?> GetPolicyAsync(Guid applicationId, CancellationToken cancellationToken = default)
             => Task.FromResult<Application.Applications.DTOs.ApplicationPolicyDto?>(null);
 
-        public Task<Application.Applications.DTOs.ApplicationPolicyDto> UpdatePolicyAsync(Guid applicationId, Application.Applications.DTOs.UpdateApplicationPolicyRequest request, CancellationToken cancellationToken = default)
+        public Task<Application.Applications.DTOs.ApplicationPolicyDto> UpdatePolicyAsync(Guid applicationId, Application.Applications.DTOs.UpdateApplicationPolicyRequest request, CancellationToken cancellationToken = default, Guid? adminUserId = null)
             => throw new NotImplementedException();
 
         public Task<Application.Applications.Models.ApplicationPolicyEvaluation> EvaluatePolicyAsync(Guid applicationId, string ipAddress, bool isAuthenticated, bool isIpTrusted, string? cloudflareCountry = null, string? path = null, CancellationToken cancellationToken = default)

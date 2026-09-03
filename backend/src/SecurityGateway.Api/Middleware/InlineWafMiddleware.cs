@@ -114,14 +114,23 @@ public sealed class InlineWafMiddleware
             var remoteIp = context.Connection.RemoteIpAddress?.ToString();
             var forwardedFor = context.Request.Headers.GetCommaSeparatedValues("X-Forwarded-For").ToList();
             var realIp = context.Request.Headers.GetCommaSeparatedValues("X-Real-Ip").ToList();
-
             var forwarded = context.Request.Headers.GetCommaSeparatedValues("Forwarded").ToList();
+
+            var additionalHeaders = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["CF-Connecting-IP"] = context.Request.Headers.GetCommaSeparatedValues("CF-Connecting-IP"),
+                ["CF-Visitor-IP"] = context.Request.Headers.GetCommaSeparatedValues("CF-Visitor-IP"),
+                ["CF-IPCountry"] = context.Request.Headers.GetCommaSeparatedValues("CF-IPCountry"),
+                ["CF-Ray"] = context.Request.Headers.GetCommaSeparatedValues("CF-Ray")
+            };
+
             var result = _clientIpResolver.Resolve(new ClientIpContext
             {
                 RemoteIp = remoteIp,
                 ForwardedFor = forwardedFor,
                 RealIp = realIp,
-                Forwarded = forwarded
+                Forwarded = forwarded,
+                AdditionalHeaders = additionalHeaders
             });
             return result.ClientIp;
         }

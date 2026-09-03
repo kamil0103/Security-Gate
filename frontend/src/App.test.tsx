@@ -33,7 +33,6 @@ describe('App', () => {
 
   beforeEach(() => {
     localStorage.setItem('sg_access_token', 'fake-token')
-    localStorage.setItem('sg_refresh_token', 'fake-refresh')
     localStorage.setItem('sg_expires_at', new Date(Date.now() + 3600000).toISOString())
 
     vi.spyOn(global, 'fetch').mockImplementation((url) => {

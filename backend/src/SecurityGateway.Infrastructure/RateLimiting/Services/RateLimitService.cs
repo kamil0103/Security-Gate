@@ -37,7 +37,17 @@ public sealed class RateLimitService : IRateLimitService
     {
         if (!_rateLimitStore.IsAvailable)
         {
-            return Allow();
+            // Fail-closed: if the rate-limiting store is unavailable, deny the request rather than
+            // allowing unbounded traffic. This prevents attackers from bypassing rate limits by
+            // exhausting or disabling Redis.
+            return new RateLimitResult
+            {
+                Allowed = false,
+                Remaining = 0,
+                ResetAt = DateTimeOffset.UtcNow.AddMinutes(1),
+                Reason = "Rate limiting store is unavailable. Request denied for security.",
+                EscalatedToBlock = false
+            };
         }
 
         var rules = await _ruleRepository.GetEnabledAsync(cancellationToken).ConfigureAwait(false);

@@ -72,32 +72,17 @@ public sealed class AutomaticBlockingService : IAutomaticBlockingService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(ipAddress);
 
-        var existing = await _blocklistRepository.GetByTypeAndValueAsync(BlocklistEntryType.Ip, ipAddress, cancellationToken).ConfigureAwait(false);
-
-        if (existing is not null)
+        var entry = new BlocklistEntry
         {
-            existing.IsEnabled = true;
-            existing.ExpiresAt = durationMinutes.HasValue
+            Type = BlocklistEntryType.Ip,
+            Value = ipAddress,
+            Reason = reason,
+            ExpiresAt = durationMinutes.HasValue
                 ? DateTimeOffset.UtcNow.AddMinutes(durationMinutes.Value)
-                : null;
-            existing.Reason = reason;
+                : null
+        };
 
-            await _blocklistRepository.UpdateAsync(existing, cancellationToken).ConfigureAwait(false);
-        }
-        else
-        {
-            var entry = new BlocklistEntry
-            {
-                Type = BlocklistEntryType.Ip,
-                Value = ipAddress,
-                Reason = reason,
-                ExpiresAt = durationMinutes.HasValue
-                    ? DateTimeOffset.UtcNow.AddMinutes(durationMinutes.Value)
-                    : null
-            };
-
-            await _blocklistRepository.AddAsync(entry, cancellationToken).ConfigureAwait(false);
-        }
+        await _blocklistRepository.UpsertAsync(entry, cancellationToken).ConfigureAwait(false);
 
         await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 

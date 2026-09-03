@@ -19,6 +19,7 @@ public class AccessControlServiceTests : IDisposable
 {
     private readonly ApplicationDbContext _context;
     private readonly AccessControlService _service;
+    private readonly FakeAuditService _auditService;
 
     public AccessControlServiceTests()
     {
@@ -33,6 +34,7 @@ public class AccessControlServiceTests : IDisposable
         var blocklistRepository = new BlocklistRepository(_context);
         var accessDecisionRepository = new AccessDecisionRepository(_context);
         var deviceRepository = new DeviceRepository(_context);
+        _auditService = new FakeAuditService();
 
         _service = new AccessControlService(
             trustedNetworkRepository,
@@ -40,7 +42,7 @@ public class AccessControlServiceTests : IDisposable
             accessDecisionRepository,
             deviceRepository,
             new FakeThreatDetectionService(),
-            new FakeAuditService(),
+            _auditService,
             _context);
     }
 
@@ -205,5 +207,55 @@ public class AccessControlServiceTests : IDisposable
         _context.Devices.Add(device);
         await _context.SaveChangesAsync();
         return device;
+    }
+
+    [Fact]
+    public async Task IsIpTrustedAsync_Ipv6Cidr_Matches()
+    {
+        await _service.CreateTrustedNetworkAsync(new CreateTrustedNetworkRequest
+        {
+            Name = "IPv6 LAN",
+            Cidr = "2001:db8::/32"
+        });
+
+        var result = await _service.IsIpTrustedAsync("2001:db8:1::50");
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task IsBlockedAsync_BlockedIpv6Network_ReturnsTrue()
+    {
+        await _service.CreateBlocklistEntryAsync(new CreateBlocklistEntryRequest
+        {
+            Type = BlocklistEntryType.Network,
+            Value = "2001:db8::/32"
+        });
+
+        var result = await _service.IsBlockedAsync("2001:db8:1::50", null, null);
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public async Task ApproveDeviceAsync_CreatesAuditLog()
+    {
+        var user = await CreateUserAsync();
+        var device = await CreateDeviceAsync(user.Id, DeviceTrustStatus.Pending);
+
+        await _service.ApproveDeviceAsync(device.Id, user.Id, "Test approval");
+
+        Assert.Contains(_auditService.Logs, e => e.Action == "DeviceApproved");
+    }
+
+    [Fact]
+    public async Task DenyDeviceAsync_CreatesAuditLog()
+    {
+        var user = await CreateUserAsync();
+        var device = await CreateDeviceAsync(user.Id, DeviceTrustStatus.Pending);
+
+        await _service.DenyDeviceAsync(device.Id, user.Id, "Test denial");
+
+        Assert.Contains(_auditService.Logs, e => e.Action == "DeviceDenied");
     }
 }

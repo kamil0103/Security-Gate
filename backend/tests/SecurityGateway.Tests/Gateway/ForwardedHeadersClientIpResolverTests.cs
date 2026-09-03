@@ -139,4 +139,40 @@ public class ForwardedHeadersClientIpResolverTests
         Assert.Equal("198.51.100.9", result.ClientIp);
         Assert.True(result.IsTrusted);
     }
+
+    [Fact]
+    public void Resolve_Ipv6Cidr_MatchesSubnet()
+    {
+        var resolver = CreateResolver("2001:db8::/32");
+        var context = new ClientIpContext
+        {
+            RemoteIp = "2001:db8::1",
+            ForwardedFor = ["2001:db8:1::50"],
+            RealIp = [],
+            Forwarded = []
+        };
+
+        var result = resolver.Resolve(context);
+
+        Assert.Equal("2001:db8:1::50", result.ClientIp);
+        Assert.True(result.IsTrusted);
+    }
+
+    [Fact]
+    public void Resolve_SpoofedForwardedForFromUntrustedProxy_IgnoresHeaders()
+    {
+        var resolver = CreateResolver("127.0.0.1");
+        var context = new ClientIpContext
+        {
+            RemoteIp = "203.0.113.10",
+            ForwardedFor = ["198.51.100.5"],
+            RealIp = ["198.51.100.6"],
+            Forwarded = []
+        };
+
+        var result = resolver.Resolve(context);
+
+        Assert.Equal("203.0.113.10", result.ClientIp);
+        Assert.False(result.IsTrusted);
+    }
 }

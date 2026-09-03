@@ -131,6 +131,31 @@ public class RateLimitServiceTests : IDisposable
         Assert.True(result.Allowed);
     }
 
+    [Fact]
+    public async Task CheckAsync_StoreUnavailable_FailsClosed()
+    {
+        await _service.CreateRuleAsync(new Application.RateLimiting.DTOs.CreateRateLimitRuleRequest
+        {
+            ScopeType = RateLimitScopeType.Ip,
+            ScopeValue = "198.51.100.1",
+            RequestsPerWindow = 5,
+            WindowSeconds = 60
+        });
+
+        var unavailableService = new RateLimitService(
+            new UnavailableRateLimitStore(),
+            new RateLimitRuleRepository(_context),
+            new BlocklistRepository(_context),
+            new FakeThreatDetectionService(),
+            _context);
+
+        var context = CreateContext("198.51.100.1");
+        var result = await unavailableService.CheckAsync(context);
+
+        Assert.False(result.Allowed);
+        Assert.Contains("unavailable", result.Reason, StringComparison.OrdinalIgnoreCase);
+    }
+
     public void Dispose()
     {
         _context.Dispose();

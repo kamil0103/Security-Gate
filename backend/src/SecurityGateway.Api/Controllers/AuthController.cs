@@ -27,7 +27,9 @@ public class AuthController : ControllerBase
         var (ip, userAgent) = GetRequestMetadata();
         var deviceRequest = EnrichDeviceRequest(request.Device, userAgent);
         var result = await _authenticationService.RegisterAsync(request.User, deviceRequest, ip, userAgent, cancellationToken);
-        return Ok(result);
+
+        SetRefreshTokenCookie(result.Tokens.RefreshToken, result.Tokens.RefreshTokenExpiresAt);
+        return Ok(result with { Tokens = result.Tokens with { RefreshToken = string.Empty } });
     }
 
     [HttpPost("login")]
@@ -37,23 +39,40 @@ public class AuthController : ControllerBase
         var (ip, userAgent) = GetRequestMetadata();
         var deviceRequest = EnrichDeviceRequest(request.Device, userAgent);
         var result = await _authenticationService.LoginAsync(request.User, deviceRequest, ip, userAgent, cancellationToken);
-        return Ok(result);
+
+        SetRefreshTokenCookie(result.Tokens.RefreshToken, result.Tokens.RefreshTokenExpiresAt);
+        return Ok(result with { Tokens = result.Tokens with { RefreshToken = string.Empty } });
     }
 
     [HttpPost("logout")]
     [Authorize]
-    public async Task<IActionResult> Logout(RefreshTokenRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Logout(RefreshTokenRequest? request, CancellationToken cancellationToken)
     {
-        await _authenticationService.LogoutAsync(request.RefreshToken, cancellationToken);
+        var refreshToken = request?.RefreshToken ?? GetRefreshTokenFromCookie();
+        ClearRefreshTokenCookie();
+
+        if (!string.IsNullOrWhiteSpace(refreshToken))
+        {
+            await _authenticationService.LogoutAsync(refreshToken, cancellationToken);
+        }
+
         return NoContent();
     }
 
     [HttpPost("refresh")]
     [AllowAnonymous]
-    public async Task<IActionResult> Refresh(RefreshTokenRequest request, CancellationToken cancellationToken)
+    public async Task<IActionResult> Refresh(RefreshTokenRequest? request, CancellationToken cancellationToken)
     {
-        var result = await _authenticationService.RefreshTokenAsync(request, cancellationToken);
-        return Ok(result);
+        var refreshToken = request?.RefreshToken ?? GetRefreshTokenFromCookie();
+
+        if (string.IsNullOrWhiteSpace(refreshToken))
+        {
+            return Unauthorized(new { error = "Refresh token is required." });
+        }
+
+        var result = await _authenticationService.RefreshTokenAsync(new RefreshTokenRequest { RefreshToken = refreshToken }, cancellationToken);
+        SetRefreshTokenCookie(result.RefreshToken, result.RefreshTokenExpiresAt);
+        return Ok(result with { RefreshToken = string.Empty });
     }
 
     [HttpPost("change-password")]
@@ -119,6 +138,37 @@ public class AuthController : ControllerBase
         return (clientIpResult.ClientIp, userAgent);
     }
 
+    private const string RefreshTokenCookieName = "sg_refresh_token";
+
+    private void SetRefreshTokenCookie(string refreshToken, DateTimeOffset expiresAt)
+    {
+        var options = new CookieOptions
+        {
+            Path = "/api/auth",
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = expiresAt
+        };
+
+        Response.Cookies.Append(RefreshTokenCookieName, refreshToken, options);
+    }
+
+    private void ClearRefreshTokenCookie()
+    {
+        Response.Cookies.Delete(RefreshTokenCookieName, new CookieOptions
+        {
+            Path = "/api/auth",
+            Secure = true,
+            SameSite = SameSiteMode.Strict
+        });
+    }
+
+    private string? GetRefreshTokenFromCookie()
+    {
+        return Request.Cookies.TryGetValue(RefreshTokenCookieName, out var value) ? value : null;
+    }
+
     private DeviceEnrollmentRequest EnrichDeviceRequest(DeviceEnrollmentRequest? request, string userAgent)
     {
         if (request is null)
@@ -151,7 +201,14 @@ public class AuthController : ControllerBase
             RemoteIp = HttpContext.Connection.RemoteIpAddress?.ToString(),
             ForwardedFor = GetHeaderValues("X-Forwarded-For"),
             RealIp = GetHeaderValues("X-Real-IP"),
-            Forwarded = GetHeaderValues("Forwarded")
+            Forwarded = GetHeaderValues("Forwarded"),
+            AdditionalHeaders = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["CF-Connecting-IP"] = GetHeaderValues("CF-Connecting-IP"),
+                ["CF-Visitor-IP"] = GetHeaderValues("CF-Visitor-IP"),
+                ["CF-IPCountry"] = GetHeaderValues("CF-IPCountry"),
+                ["CF-Ray"] = GetHeaderValues("CF-Ray")
+            }
         };
     }
 
