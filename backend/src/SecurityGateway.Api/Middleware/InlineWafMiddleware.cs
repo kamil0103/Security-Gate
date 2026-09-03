@@ -11,7 +11,6 @@ public sealed class InlineWafMiddleware
     private readonly RequestDelegate _next;
     private readonly InlineWafOptions _options;
     private readonly IClientIpResolver _clientIpResolver;
-    private readonly IWafEventService _wafEventService;
     private readonly ILogger<InlineWafMiddleware> _logger;
 
     private static readonly IReadOnlyList<WafRule> Rules = new List<WafRule>
@@ -30,17 +29,15 @@ public sealed class InlineWafMiddleware
         RequestDelegate next,
         InlineWafOptions options,
         IClientIpResolver clientIpResolver,
-        IWafEventService wafEventService,
         ILogger<InlineWafMiddleware> logger)
     {
         _next = next;
         _options = options;
         _clientIpResolver = clientIpResolver;
-        _wafEventService = wafEventService;
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context)
+    public async Task InvokeAsync(HttpContext context, IWafEventService wafEventService)
     {
         if (!_options.Enabled)
         {
@@ -73,7 +70,7 @@ public sealed class InlineWafMiddleware
 
             try
             {
-                await _wafEventService.IngestAsync(new CreateWafEventRequest
+                await wafEventService.IngestAsync(new CreateWafEventRequest
                 {
                     Timestamp = DateTimeOffset.UtcNow,
                     SourceIp = clientIp,

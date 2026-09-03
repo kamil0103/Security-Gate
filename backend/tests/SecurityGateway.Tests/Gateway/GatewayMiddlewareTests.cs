@@ -29,20 +29,21 @@ public class GatewayMiddlewareTests
             _ => { nextInvoked = true; return Task.CompletedTask; },
             proxyService,
             resolver,
-            null,
-            CreateApplicationPolicyService(),
-            CreateAccessControlService(),
-            CreateAccessRequestService(),
-            CreateRateLimitService(),
-            CreateAutomaticBlockingService(),
-            CreateAuditService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
         var context = new DefaultHttpContext();
         context.Request.Path = "/api/health";
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(
+            context,
+            CreateIpIntelligenceService(),
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
+            CreateAccessRequestService(),
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService());
 
         Assert.True(nextInvoked);
         Assert.False(proxyService.WasCalled);
@@ -59,13 +60,6 @@ public class GatewayMiddlewareTests
             _ => Task.CompletedTask,
             proxyService,
             resolver,
-            null,
-            CreateApplicationPolicyService(),
-            CreateAccessControlService(),
-            CreateAccessRequestService(),
-            CreateRateLimitService(),
-            CreateAutomaticBlockingService(),
-            CreateAuditService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -75,13 +69,38 @@ public class GatewayMiddlewareTests
         context.Request.QueryString = new QueryString("?id=1");
         context.Response.Body = new MemoryStream();
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(
+            context,
+            CreateIpIntelligenceService(),
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
+            CreateAccessRequestService(),
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService());
 
         Assert.True(proxyService.WasCalled);
         Assert.Equal("/immich", proxyService.LastRequest?.Path);
         Assert.Equal("?id=1", proxyService.LastRequest?.QueryString);
         Assert.Equal("198.51.100.1", proxyService.LastRequest?.ClientIp);
         Assert.Equal(200, context.Response.StatusCode);
+    }
+
+    private static IIpIntelligenceService CreateIpIntelligenceService()
+    {
+        return new FakeIpIntelligenceService();
+    }
+
+    private sealed class FakeIpIntelligenceService : IIpIntelligenceService
+    {
+        public Task<IpAddressDto> TrackAsync(TrackIpRequest request, CancellationToken cancellationToken = default)
+            => Task.FromResult(new IpAddressDto { Id = Guid.NewGuid(), Ip = request.IpAddress });
+
+        public Task<IpAddressDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+            => Task.FromResult<IpAddressDto?>(null);
+
+        public Task<IReadOnlyList<IpAddressDto>> GetRecentAsync(int count, CancellationToken cancellationToken = default)
+            => Task.FromResult<IReadOnlyList<IpAddressDto>>(Array.Empty<IpAddressDto>());
     }
 
     private sealed class FakeProxyService : IProxyService
@@ -319,13 +338,6 @@ public class GatewayMiddlewareTests
             _ => Task.CompletedTask,
             proxyService,
             resolver,
-            null,
-            applicationPolicyService,
-            CreateAccessControlService(),
-            accessRequestService,
-            CreateRateLimitService(),
-            CreateAutomaticBlockingService(),
-            CreateAuditService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -335,7 +347,15 @@ public class GatewayMiddlewareTests
         context.Request.Host = new HostString("protected.example.com");
         context.Response.Body = new MemoryStream();
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(
+            context,
+            CreateIpIntelligenceService(),
+            applicationPolicyService,
+            CreateAccessControlService(),
+            accessRequestService,
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService());
 
         Assert.False(proxyService.WasCalled);
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
@@ -370,13 +390,6 @@ public class GatewayMiddlewareTests
             _ => Task.CompletedTask,
             proxyService,
             resolver,
-            null,
-            CreateApplicationPolicyService(),
-            CreateAccessControlService(),
-            CreateAccessRequestService(),
-            CreateRateLimitService(),
-            CreateAutomaticBlockingService(),
-            CreateAuditService(),
             options,
             NullLogger<GatewayMiddleware>.Instance);
 
@@ -385,7 +398,15 @@ public class GatewayMiddlewareTests
         context.Request.Path = "/";
         context.Request.Host = new HostString("unknown.example.com");
 
-        await middleware.InvokeAsync(context);
+        await middleware.InvokeAsync(
+            context,
+            CreateIpIntelligenceService(),
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
+            CreateAccessRequestService(),
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService());
 
         Assert.Equal(StatusCodes.Status502BadGateway, context.Response.StatusCode);
     }

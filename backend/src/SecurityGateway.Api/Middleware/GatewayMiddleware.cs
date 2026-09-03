@@ -20,13 +20,6 @@ public sealed class GatewayMiddleware
     private readonly RequestDelegate _next;
     private readonly IProxyService _proxyService;
     private readonly IClientIpResolver _clientIpResolver;
-    private readonly IIpIntelligenceService? _ipIntelligenceService;
-    private readonly IApplicationPolicyService _applicationPolicyService;
-    private readonly IAccessControlService _accessControlService;
-    private readonly IAccessRequestService _accessRequestService;
-    private readonly IRateLimitService _rateLimitService;
-    private readonly IAutomaticBlockingService _automaticBlockingService;
-    private readonly IAuditService _auditService;
     private readonly GatewayOptions _options;
     private readonly ILogger<GatewayMiddleware> _logger;
 
@@ -34,31 +27,25 @@ public sealed class GatewayMiddleware
         RequestDelegate next,
         IProxyService proxyService,
         IClientIpResolver clientIpResolver,
-        IIpIntelligenceService? ipIntelligenceService,
-        IApplicationPolicyService applicationPolicyService,
-        IAccessControlService accessControlService,
-        IAccessRequestService accessRequestService,
-        IRateLimitService rateLimitService,
-        IAutomaticBlockingService automaticBlockingService,
-        IAuditService auditService,
         GatewayOptions options,
         ILogger<GatewayMiddleware> logger)
     {
         _next = next;
         _proxyService = proxyService;
         _clientIpResolver = clientIpResolver;
-        _ipIntelligenceService = ipIntelligenceService;
-        _applicationPolicyService = applicationPolicyService;
-        _accessControlService = accessControlService;
-        _accessRequestService = accessRequestService;
-        _rateLimitService = rateLimitService;
-        _automaticBlockingService = automaticBlockingService;
-        _auditService = auditService;
         _options = options;
         _logger = logger;
     }
 
-    public async Task InvokeAsync(HttpContext context)
+    public async Task InvokeAsync(
+        HttpContext context,
+        IIpIntelligenceService ipIntelligenceService,
+        IApplicationPolicyService applicationPolicyService,
+        IAccessControlService accessControlService,
+        IAccessRequestService accessRequestService,
+        IRateLimitService rateLimitService,
+        IAutomaticBlockingService automaticBlockingService,
+        IAuditService auditService)
     {
         var path = context.Request.Path.Value ?? "/";
 
@@ -87,23 +74,20 @@ public sealed class GatewayMiddleware
             clientIpResult.IsTrusted,
             string.Join(" -> ", clientIpResult.ProxyChain));
 
-        if (_ipIntelligenceService is not null)
+        try
         {
-            try
+            await ipIntelligenceService.TrackAsync(new TrackIpRequest
             {
-                await _ipIntelligenceService.TrackAsync(new TrackIpRequest
-                {
-                    IpAddress = clientIp
-                }, context.RequestAborted).ConfigureAwait(false);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Non-critical IP intelligence tracking failed for {ClientIp}.", clientIp);
-            }
+                IpAddress = clientIp
+            }, context.RequestAborted).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Non-critical IP intelligence tracking failed for {ClientIp}.", clientIp);
         }
 
         var host = context.Request.Host.Host;
-        var application = await _applicationPolicyService.GetApplicationByDomainAsync(host, context.RequestAborted).ConfigureAwait(false);
+        var application = await applicationPolicyService.GetApplicationByDomainAsync(host, context.RequestAborted).ConfigureAwait(false);
 
         if (application is not null && !application.IsEnabled)
         {
@@ -126,7 +110,7 @@ public sealed class GatewayMiddleware
         var fingerprint = ComputeFingerprint(userAgent, sessionId);
         var cloudflareCountry = context.Request.Headers.GetCommaSeparatedValues("CF-IPCountry").FirstOrDefault();
 
-        var evaluation = await _accessRequestService.EvaluateAccessAsync(new AccessEvaluationContext
+        var evaluation = await accessRequestService.EvaluateAccessAsync(new AccessEvaluationContext
         {
             ApplicationId = application.Id,
             ClientIp = clientIp,
@@ -157,13 +141,13 @@ public sealed class GatewayMiddleware
             case AccessEvaluationDecision.Deny:
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsync(evaluation.Reason ?? "Access denied.", context.RequestAborted).ConfigureAwait(false);
-                await AuditDecisionAsync("AccessDenied", application, clientIp, userId, username, evaluation.Reason).ConfigureAwait(false);
+                await AuditDecisionAsync(auditService, "AccessDenied", application, clientIp, userId, username, evaluation.Reason).ConfigureAwait(false);
                 return;
 
             case AccessEvaluationDecision.Block:
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await context.Response.WriteAsync(evaluation.Reason ?? "Access blocked.", context.RequestAborted).ConfigureAwait(false);
-                await AuditDecisionAsync("AccessBlocked", application, clientIp, userId, username, evaluation.Reason).ConfigureAwait(false);
+                await AuditDecisionAsync(auditService, "AccessBlocked", application, clientIp, userId, username, evaluation.Reason).ConfigureAwait(false);
                 return;
         }
 
@@ -175,7 +159,7 @@ public sealed class GatewayMiddleware
             Endpoint = path
         };
 
-        var rateLimitResult = await _rateLimitService.CheckAsync(rateLimitContext, context.RequestAborted).ConfigureAwait(false);
+        var rateLimitResult = await rateLimitService.CheckAsync(rateLimitContext, context.RequestAborted).ConfigureAwait(false);
 
         if (!rateLimitResult.Allowed)
         {
@@ -333,11 +317,11 @@ public sealed class GatewayMiddleware
         return Convert.ToHexString(hash);
     }
 
-    private async Task AuditDecisionAsync(string action, ApplicationDto application, string clientIp, Guid? userId, string? username, string? reason)
+    private static async Task AuditDecisionAsync(IAuditService auditService, string action, ApplicationDto application, string clientIp, Guid? userId, string? username, string? reason)
     {
         try
         {
-            await _auditService.LogAsync(
+            await auditService.LogAsync(
                 AuditCategory.AccessControl,
                 action,
                 userId,

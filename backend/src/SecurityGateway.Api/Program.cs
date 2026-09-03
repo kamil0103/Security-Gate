@@ -213,12 +213,6 @@ builder.Services.AddScoped<IMapService, MapService>();
 builder.Services.AddScoped<IAuditLogRepository, AuditLogRepository>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 
-// Middleware must be resolved from the request scope so that scoped services
-// (ApplicationDbContext, repositories, application services) are not shared across concurrent requests.
-builder.Services.AddScoped<SecurityHeadersMiddleware>();
-builder.Services.AddScoped<InlineWafMiddleware>();
-builder.Services.AddScoped<GatewayMiddleware>();
-
 // Threat intelligence
 builder.Services.AddScoped<IThreatIntelligenceService, ThreatIntelligenceService>();
 if (!string.IsNullOrWhiteSpace(threatIntelligenceOptions.AbuseIpDbApiKey))
