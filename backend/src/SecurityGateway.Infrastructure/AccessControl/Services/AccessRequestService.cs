@@ -403,7 +403,7 @@ public sealed class AccessRequestService : IAccessRequestService
         };
     }
 
-    private async Task CreateTrustRecordAsync(AccessRequest request, CancellationToken cancellationToken)
+    private static (TrustScope Scope, string? ClientIp, string? SessionId, string? DeviceFingerprint) ResolveTrustRecordIdentity(AccessRequest request)
     {
         var scope = request.ApprovalScope switch
         {
@@ -415,6 +415,21 @@ public sealed class AccessRequestService : IAccessRequestService
             ApprovalScope.Once or null => TrustScope.Session,
             _ => TrustScope.Session
         };
+
+        return scope switch
+        {
+            TrustScope.Session => (scope, request.ClientIp, request.SessionId, request.DeviceFingerprint),
+            TrustScope.Device => (scope, null, null, request.DeviceFingerprint),
+            TrustScope.IpAndDevice => (scope, request.ClientIp, null, request.DeviceFingerprint),
+            TrustScope.Ip => (scope, request.ClientIp, null, null),
+            TrustScope.Permanent => (scope, null, null, request.DeviceFingerprint),
+            _ => (scope, request.ClientIp, request.SessionId, request.DeviceFingerprint)
+        };
+    }
+
+    private async Task CreateTrustRecordAsync(AccessRequest request, CancellationToken cancellationToken)
+    {
+        var (scope, recordClientIp, recordSessionId, recordFingerprint) = ResolveTrustRecordIdentity(request);
 
         var expiresAt = scope switch
         {
@@ -430,10 +445,10 @@ public sealed class AccessRequestService : IAccessRequestService
         {
             Scope = scope,
             ApplicationId = request.ApplicationId,
-            ClientIp = request.ClientIp,
-            DeviceFingerprint = request.DeviceFingerprint,
+            ClientIp = recordClientIp,
+            DeviceFingerprint = recordFingerprint,
             UserId = request.UserId,
-            SessionId = request.SessionId,
+            SessionId = recordSessionId,
             ExpiresAt = expiresAt,
             AccessRequestId = request.Id,
             CreatedByUserId = request.ReviewedByUserId

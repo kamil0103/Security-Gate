@@ -56,6 +56,14 @@ public sealed class GatewayMiddleware
             return;
         }
 
+        // Access-request status polling is part of the challenge/approval workflow and must
+        // reach the backend controller rather than being proxied to an upstream application.
+        if (path.StartsWith("/api/access-requests/", StringComparison.OrdinalIgnoreCase))
+        {
+            await _next(context).ConfigureAwait(false);
+            return;
+        }
+
         if (IsAdminPath(context.Request.Host.Host, path))
         {
             await _next(context).ConfigureAwait(false);
@@ -247,8 +255,8 @@ public sealed class GatewayMiddleware
   <button id='continue' disabled>Continue</button>
 </div>
 <script>
-  const publicId = {System.Text.Json.JsonEncodedText.Encode(publicId)};
-  const continueUrl = {System.Text.Json.JsonEncodedText.Encode(continueUrl)};
+  const publicId = {System.Text.Json.JsonSerializer.Serialize(publicId)};
+  const continueUrl = {System.Text.Json.JsonSerializer.Serialize(continueUrl)};
   const statusEl = document.getElementById('status');
   const messageEl = document.getElementById('message');
   const continueBtn = document.getElementById('continue');

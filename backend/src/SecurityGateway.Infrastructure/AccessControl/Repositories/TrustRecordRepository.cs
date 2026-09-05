@@ -21,24 +21,12 @@ public sealed class TrustRecordRepository : ITrustRecordRepository
         var query = _context.TrustRecords
             .AsNoTracking()
             .Where(r => r.ApplicationId == applicationId
-                        && r.ClientIp == clientIp
                         && !r.IsRevoked
-                        && (r.ExpiresAt == null || r.ExpiresAt > now));
-
-        if (!string.IsNullOrWhiteSpace(sessionId))
-        {
-            query = query.Where(r => r.SessionId == sessionId || r.SessionId == null);
-        }
-
-        if (!string.IsNullOrWhiteSpace(deviceFingerprint))
-        {
-            query = query.Where(r => r.DeviceFingerprint == deviceFingerprint || r.DeviceFingerprint == null);
-        }
-
-        if (userId.HasValue)
-        {
-            query = query.Where(r => r.UserId == userId || r.UserId == null);
-        }
+                        && (r.ExpiresAt == null || r.ExpiresAt > now)
+                        && (r.ClientIp == null || r.ClientIp == clientIp)
+                        && (r.SessionId == null || r.SessionId == sessionId)
+                        && (r.DeviceFingerprint == null || r.DeviceFingerprint == deviceFingerprint)
+                        && (r.UserId == null || r.UserId == userId));
 
         var records = await query.ToListAsync(cancellationToken).ConfigureAwait(false);
         return records.AsReadOnly();

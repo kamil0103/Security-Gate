@@ -50,6 +50,40 @@ public class GatewayMiddlewareTests
     }
 
     [Fact]
+    public async Task InvokeAsync_AccessRequestStatusPath_CallsNextAndDoesNotProxy()
+    {
+        var proxyService = new FakeProxyService();
+        var resolver = new FakeClientIpResolver();
+        var options = new GatewayOptions { AdminPathPrefixes = ["/api"] };
+        var nextInvoked = false;
+
+        var middleware = new GatewayMiddleware(
+            _ => { nextInvoked = true; return Task.CompletedTask; },
+            proxyService,
+            resolver,
+            options,
+            NullLogger<GatewayMiddleware>.Instance);
+
+        var context = new DefaultHttpContext();
+        context.Request.Method = "GET";
+        context.Request.Path = "/api/access-requests/ABC123/status";
+        context.Request.Host = new HostString("sonarr.toncom159.com");
+
+        await middleware.InvokeAsync(
+            context,
+            CreateIpIntelligenceService(),
+            CreateApplicationPolicyService(),
+            CreateAccessControlService(),
+            CreateAccessRequestService(),
+            CreateRateLimitService(),
+            CreateAutomaticBlockingService(),
+            CreateAuditService());
+
+        Assert.True(nextInvoked);
+        Assert.False(proxyService.WasCalled);
+    }
+
+    [Fact]
     public async Task InvokeAsync_ProxiedPath_ForwardsRequest()
     {
         var proxyService = new FakeProxyService();
@@ -359,9 +393,12 @@ public class GatewayMiddlewareTests
 
         Assert.False(proxyService.WasCalled);
         Assert.Equal(StatusCodes.Status200OK, context.Response.StatusCode);
-        Assert.Contains("Access approval is required", await ReadResponseBodyAsync(context));
-        Assert.Contains("SG-ABC123XYZ", await ReadResponseBodyAsync(context));
+        var body = await ReadResponseBodyAsync(context);
+        Assert.Contains("Access approval is required", body);
+        Assert.Contains("SG-ABC123XYZ", body);
         Assert.Contains(context.Response.Headers["Set-Cookie"], c => c is not null && c.Contains("sg_session"));
+        Assert.Contains("const publicId = \"SG-ABC123XYZ\";", body);
+        Assert.Contains("const continueUrl = \"/\";", body);
     }
 
     private static async Task<string> ReadResponseBodyAsync(HttpContext context)

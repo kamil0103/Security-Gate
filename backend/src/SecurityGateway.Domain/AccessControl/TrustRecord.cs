@@ -25,7 +25,7 @@ public sealed class TrustRecord
     public Guid ApplicationId { get; init; }
     public Application Application { get; init; } = null!;
 
-    public string ClientIp { get; init; } = string.Empty;
+    public string? ClientIp { get; init; }
     public string? DeviceFingerprint { get; init; }
     public Guid? UserId { get; init; }
     public User? User { get; init; }
