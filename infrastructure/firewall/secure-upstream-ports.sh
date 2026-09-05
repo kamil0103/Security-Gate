@@ -23,6 +23,9 @@ set -euo pipefail
 PROTECTED_TCP_PORTS=(8989 7878 8080 2283 8096 5055 8123)
 # Adjust if the local subnet differs.
 LAN_NETWORKS=("192.168.5.0/24" "10.253.0.0/16")
+# Immich is intentionally reachable directly on its host port from any RFC1918
+# private network (e.g., a different Wi-Fi subnet or VLAN in the same home).
+IMMICH_LAN_NETWORKS=("10.0.0.0/8" "172.16.0.0/12" "192.168.0.0/16")
 DOCKER_NETWORKS=("172.16.0.0/12" "172.17.0.0/16" "172.18.0.0/16" "172.19.0.0/16" "172.20.0.0/16" "172.21.0.0/16")
 
 CHAIN="DOCKER-USER"
@@ -82,6 +85,14 @@ apply_rules() {
         # Drop everything else.
         iptables -A "$CHAIN" -p tcp --dport "$port" -j DROP 2>/dev/null || true
         iptables -A INPUT -p tcp --dport "$port" -j DROP 2>/dev/null || true
+    done
+
+    # Immich-specific: allow direct host-port access from any RFC1918 private
+    # network. These rules are inserted before the DROP rules added above.
+    log "Allowing broader private-network access for Immich (port 2283)"
+    for net in "${IMMICH_LAN_NETWORKS[@]}"; do
+        iptables -I INPUT 1 -p tcp --dport 2283 -s "$net" -j ACCEPT 2>/dev/null || true
+        iptables -I "$CHAIN" 1 -p tcp --dport 2283 -s "$net" -j ACCEPT 2>/dev/null || true
     done
 }
 
