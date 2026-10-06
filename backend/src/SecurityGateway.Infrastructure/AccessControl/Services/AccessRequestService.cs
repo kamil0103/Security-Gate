@@ -214,6 +214,12 @@ public sealed class AccessRequestService : IAccessRequestService
         switch (request.Decision)
         {
             case AccessRequestDecision.Approve:
+                // An unauthenticated challenge must never create a trust record.
+                if (!accessRequest.UserId.HasValue)
+                {
+                    throw new InvalidOperationException("Authentication is required before an access request can be approved.");
+                }
+
                 accessRequest.Status = AccessRequestStatus.Approved;
                 await CreateTrustRecordAsync(accessRequest, cancellationToken).ConfigureAwait(false);
                 break;
