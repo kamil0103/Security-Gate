@@ -13,6 +13,13 @@ namespace SecurityGateway.Tests;
 
 public class TestWebApplicationFactory : WebApplicationFactory<Program>
 {
+    public TestWebApplicationFactory()
+    {
+        // Integration clients should use the admin host rather than falling through
+        // the gateway's unknown-host reverse proxy to npm-placeholder.
+        ClientOptions.BaseAddress = new Uri("http://admin.toncom159.com");
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
