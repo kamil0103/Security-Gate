@@ -36,12 +36,13 @@ public sealed class AccessRequestRepository : IAccessRequestRepository
             .FirstOrDefaultAsync(r => r.PublicId == publicId, cancellationToken);
     }
 
-    public Task<AccessRequest?> FindPendingAsync(Guid applicationId, string clientIp, string? deviceFingerprint, string? sessionId, CancellationToken cancellationToken = default)
+    public Task<AccessRequest?> FindPendingAsync(Guid applicationId, string clientIp, string? deviceFingerprint, string? sessionId, Guid? userId, CancellationToken cancellationToken = default)
     {
         var query = _context.AccessRequests
             .Where(r => r.ApplicationId == applicationId
                         && r.ClientIp == clientIp
                         && r.Status == AccessRequestStatus.Pending
+                        && r.UserId == userId
                         && r.ExpiresAt > DateTimeOffset.UtcNow);
 
         if (!string.IsNullOrWhiteSpace(sessionId))
