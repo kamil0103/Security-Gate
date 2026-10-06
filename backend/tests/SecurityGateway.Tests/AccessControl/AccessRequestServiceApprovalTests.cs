@@ -119,6 +119,39 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
     }
 
     [Fact]
+    public async Task EvaluateAccessAsync_LoginWithSameSession_CreatesAuthenticatedChallenge()
+    {
+        const string fingerprint = "fp:login-handoff";
+        const string session = "same-browser-session";
+        var anonymous = await _service.EvaluateAccessAsync(CreateContext(
+            clientIp: "198.51.100.10", fingerprint: fingerprint, sessionId: session));
+        Assert.Equal(AccessEvaluationDecision.Challenge, anonymous.Decision);
+        Assert.Null(anonymous.AccessRequest!.UserId);
+        _context.ChangeTracker.Clear();
+
+        var authenticated = await _service.EvaluateAccessAsync(CreateContext(
+            clientIp: "198.51.100.10", fingerprint: fingerprint, sessionId: session,
+            isAuthenticated: true, userId: _adminUser.Id));
+        Assert.Equal(AccessEvaluationDecision.Challenge, authenticated.Decision);
+        Assert.Equal(_adminUser.Id, authenticated.AccessRequest!.UserId);
+        Assert.NotEqual(anonymous.PublicId, authenticated.PublicId);
+        Assert.Equal(2, await _context.AccessRequests.CountAsync());
+    }
+
+    [Fact]
+    public async Task EvaluateAccessAsync_RepeatedChallenge_ReusesWithoutCounterWrite()
+    {
+        var request = CreateContext(clientIp: "198.51.100.10",
+            fingerprint: "fp:repeat", sessionId: "repeat-session");
+        var first = await _service.EvaluateAccessAsync(request);
+        _context.ChangeTracker.Clear();
+        var second = await _service.EvaluateAccessAsync(request);
+        Assert.Equal(first.PublicId, second.PublicId);
+        Assert.Equal(1, (await _context.AccessRequests.SingleAsync()).RequestCount);
+        Assert.False(_context.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
     public async Task GetPendingAsync_ExcludesExpiredRequests()
     {
         var challenge = await _service.EvaluateAccessAsync(CreateContext(
