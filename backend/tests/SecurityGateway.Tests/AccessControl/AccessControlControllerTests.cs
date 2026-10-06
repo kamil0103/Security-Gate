@@ -77,6 +77,50 @@ public class AccessControlControllerTests : IClassFixture<TestWebApplicationFact
     }
 
     [Fact]
+    public async Task ResolveAccessRequest_AlreadyResolved_ReturnsConflict()
+    {
+        var token = await CreateAdminTokenAsync();
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        // A missing request is not a conflict: it currently throws an
+        // InvalidOperationException with a different message.
+        // Exercise the conflict branch using a resolved request below.
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        var app = new SecurityGateway.Domain.Applications.Application
+        {
+            Name = "Resolved test",
+            Domain = $"resolved-{Guid.NewGuid():N}.example.test",
+            UpstreamUrl = "http://upstream",
+            IsEnabled = true
+        };
+        db.Applications.Add(app);
+        await db.SaveChangesAsync();
+        var accessRequest = new AccessRequest
+        {
+            ApplicationId = app.Id,
+            ClientIp = "198.51.100.10",
+            Status = AccessRequestStatus.Approved,
+            ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30)
+        };
+        db.AccessRequests.Add(accessRequest);
+        await db.SaveChangesAsync();
+
+        var response = await client.PostAsJsonAsync(
+            $"/api/access-requests/{accessRequest.Id}/resolve",
+            new ResolveAccessRequestRequest
+            {
+                Decision = AccessRequestDecision.Approve,
+                ApprovalScope = ApprovalScope.Device
+            });
+
+        Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains("already been resolved", body);
+    }
+
+    [Fact]
     public async Task AccessControl_WithoutToken_ReturnsUnauthorized()
     {
         var client = _factory.CreateClient();
