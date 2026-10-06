@@ -90,7 +90,6 @@ public sealed class AccessRequestService : IAccessRequestService
             context.DeviceFingerprint,
             context.UserId,
             context.SessionId,
-            context.UserId,
             cancellationToken).ConfigureAwait(false);
 
         if (existingTrust.Count > 0)
@@ -315,6 +314,7 @@ public sealed class AccessRequestService : IAccessRequestService
             context.ClientIp,
             context.DeviceFingerprint,
             context.SessionId,
+            context.UserId,
             cancellationToken).ConfigureAwait(false);
 
         if (existing is not null)
