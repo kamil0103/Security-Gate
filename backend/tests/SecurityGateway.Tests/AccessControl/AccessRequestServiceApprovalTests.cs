@@ -152,6 +152,22 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
     }
 
     [Fact]
+    public async Task GetStatusAsync_ExpiredPendingRequest_ReportsExpiredBeforeCleanupRuns()
+    {
+        var challenge = await _service.EvaluateAccessAsync(CreateContext(
+            clientIp: "198.51.100.10", fingerprint: "fp:status-expired",
+            sessionId: "status-expired-session"));
+        var stored = await _context.AccessRequests.SingleAsync(x => x.Id == challenge.AccessRequest!.Id);
+        stored.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var status = await _service.GetStatusAsync(challenge.PublicId!);
+        Assert.Equal("Expired", status.Status);
+        Assert.Equal(AccessRequestStatus.Pending, (await _context.AccessRequests.SingleAsync()).Status);
+    }
+
+    [Fact]
     public async Task GetPendingAsync_ExcludesExpiredRequests()
     {
         var challenge = await _service.EvaluateAccessAsync(CreateContext(
