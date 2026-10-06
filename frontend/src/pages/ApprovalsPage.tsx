@@ -6,11 +6,13 @@ export function ApprovalsPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [actionReason, setActionReason] = useState('')
+  const [showAuthenticationRequired, setShowAuthenticationRequired] = useState(false)
+  const [isResolving, setIsResolving] = useState<string | null>(null)
   const [selectedScope, setSelectedScope] = useState<string>('Session')
 
-  const load = async () => {
+  const load = async (showSpinner = false) => {
     try {
-      setIsLoading(true)
+      if (showSpinner) setIsLoading(true)
       setError(null)
       const data = await fetchPendingAccessRequests()
       setRequests(data)
@@ -22,8 +24,10 @@ export function ApprovalsPage() {
   }
 
   useEffect(() => {
-    load()
-    const interval = setInterval(load, 5000)
+    void load(true)
+    const interval = setInterval(() => {
+      if (!document.hidden) void load()
+    }, 30000)
     return () => clearInterval(interval)
   }, [])
 
@@ -31,7 +35,12 @@ export function ApprovalsPage() {
     request: AccessRequest,
     decision: 'Approve' | 'Deny' | 'BlockIp' | 'BlockDevice'
   ) => {
+    if (decision === 'Approve' && !request.userId) {
+      setError('This visitor must sign in before their request can be approved.')
+      return
+    }
     setError(null)
+    setIsResolving(request.id)
     try {
       await resolveAccessRequest(request.id, {
         decision,
@@ -41,6 +50,8 @@ export function ApprovalsPage() {
       await load()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Action failed')
+    } finally {
+      setIsResolving(null)
     }
   }
 
@@ -49,9 +60,18 @@ export function ApprovalsPage() {
     return parts.length > 0 ? parts.join(' / ') : r.userAgent?.slice(0, 60) ?? 'Unknown'
   }
 
+  const ready = requests.filter((r) => Boolean(r.userId))
+  const authenticationRequired = requests.filter((r) => !r.userId)
+  const visibleRequests = showAuthenticationRequired ? authenticationRequired : ready
+
   return (
     <div className="approvals-page">
       <h2>Pending Access Approvals</h2>
+      <div className="approval-actions">
+        <button className={!showAuthenticationRequired ? 'button primary' : 'button secondary'} onClick={() => setShowAuthenticationRequired(false)}>Needs approval ({ready.length})</button>
+        <button className={showAuthenticationRequired ? 'button primary' : 'button secondary'} onClick={() => setShowAuthenticationRequired(true)}>Authentication required ({authenticationRequired.length})</button>
+        <button className="button secondary" onClick={() => void load(true)}>Refresh</button>
+      </div>
       {error && <div className="status error">{error}</div>}
 
       <div className="approval-scope">
@@ -81,13 +101,13 @@ export function ApprovalsPage() {
         />
       </div>
 
-      {isLoading && requests.length === 0 ? (
+      {isLoading && visibleRequests.length === 0 ? (
         <p>Loading...</p>
-      ) : requests.length === 0 ? (
-        <p>No pending access requests.</p>
+      ) : visibleRequests.length === 0 ? (
+        <p>{showAuthenticationRequired ? 'No visitors awaiting authentication.' : 'No authenticated requests awaiting approval.'}</p>
       ) : (
         <div className="approvals-list">
-          {requests.map((request) => (
+          {visibleRequests.map((request) => (
             <div key={request.id} className="approval-card">
               <div className="approval-header">
                 <strong>{request.applicationName}</strong>
@@ -128,24 +148,29 @@ export function ApprovalsPage() {
                 <button
                   className="button primary"
                   onClick={() => handleAction(request, 'Approve')}
+                  disabled={!request.userId || isResolving !== null}
+                  title={!request.userId ? 'Visitor must authenticate first' : undefined}
                 >
                   Approve
                 </button>
                 <button
                   className="button secondary"
                   onClick={() => handleAction(request, 'Deny')}
+                  disabled={isResolving !== null}
                 >
                   Deny
                 </button>
                 <button
                   className="button secondary"
                   onClick={() => handleAction(request, 'BlockIp')}
+                  disabled={isResolving !== null}
                 >
                   Block IP
                 </button>
                 <button
                   className="button secondary"
                   onClick={() => handleAction(request, 'BlockDevice')}
+                  disabled={isResolving !== null}
                 >
                   Block Device
                 </button>
