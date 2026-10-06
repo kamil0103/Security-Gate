@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using SecurityGateway.Api;
 using SecurityGateway.Api.Identity;
+using SecurityGateway.Api.AccessControl;
 using SecurityGateway.Api.Middleware;
 using SecurityGateway.Application.Gateway;
 using SecurityGateway.Application.Health;
@@ -156,6 +157,11 @@ if (!builder.Environment.IsEnvironment("Testing"))
     builder.Services.AddDbContext<ApplicationDbContext>(options =>
         options.UseNpgsql(postgresConnectionString, npgsql =>
             npgsql.MigrationsAssembly("SecurityGateway.Infrastructure")));
+}
+
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHostedService<ExpiredAccessRequestCleanupService>();
 }
 
 builder.Services.AddScoped<IUnitOfWork>(sp => sp.GetRequiredService<ApplicationDbContext>());
