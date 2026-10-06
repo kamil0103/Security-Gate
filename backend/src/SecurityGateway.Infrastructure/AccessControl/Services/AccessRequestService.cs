@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using System.Security.Cryptography;
 using System.Text;
 using SecurityGateway.Application.AccessControl;
@@ -256,7 +258,17 @@ public sealed class AccessRequestService : IAccessRequestService
         }
 
         await _accessRequestRepository.UpdateAsync(accessRequest, cancellationToken).ConfigureAwait(false);
-        await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+            { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "IX_TrustRecords_AccessRequestId" })
+        {
+            // Another administrator already inserted the trust grant. PostgreSQL
+            // rolls back this SaveChanges transaction, so do not report success.
+            throw new InvalidOperationException("Access request is no longer pending.", ex);
+        }
 
         await _auditService.LogAsync(
             AuditCategory.AccessControl,
