@@ -75,6 +75,30 @@ public class DeviceIdentityServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task RecognizeOrEnrollAsync_ExistingDevice_DoesNotWriteActivityOrOverwriteTrust()
+    {
+        var request = CreateRequest("device-1", "fingerprint-1");
+        var enrolled = await _service.RecognizeOrEnrollAsync(_userId, request, "192.168.1.1");
+        var device = await _context.Devices.SingleAsync(d => d.Id == enrolled.Device!.Id);
+        var originalLastSeen = device.LastSeenAt;
+        var originalIpCount = device.IpHistory.Sum(ip => ip.RequestCount);
+
+        await _service.BlockDeviceAsync(_userId, device.Id);
+        _context.ChangeTracker.Clear();
+
+        var recognized = await _service.RecognizeOrEnrollAsync(
+            _userId, CreateRequest("device-1", "fingerprint-1"), "192.168.1.2");
+
+        Assert.Equal(DeviceTrustStatus.Blocked, recognized.TrustStatus);
+        Assert.False(recognized.IsTrusted);
+        var persisted = await _context.Devices.SingleAsync(d => d.Id == device.Id);
+        Assert.Equal(originalLastSeen, persisted.LastSeenAt);
+        Assert.Equal(originalIpCount, persisted.IpHistory.Sum(ip => ip.RequestCount));
+        Assert.DoesNotContain(persisted.IpHistory, ip => ip.IpAddress == "192.168.1.2");
+        Assert.False(_context.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
     public async Task TrustDeviceAsync_PendingDevice_BecomesTrusted()
     {
         await _service.RecognizeOrEnrollAsync(_userId, CreateRequest("device-1", "fingerprint-1"), "192.168.1.1");
