@@ -167,7 +167,7 @@ public sealed class AccessRequestService : IAccessRequestService
         return new AccessRequestStatusDto
         {
             PublicId = request.PublicId,
-            Status = request.Status.ToString(),
+            Status = request.Status == AccessRequestStatus.Pending && request.ExpiresAt <= DateTimeOffset.UtcNow ? AccessRequestStatus.Expired.ToString() : request.Status.ToString(),
             ExpiresAt = request.ExpiresAt,
             Reason = request.ResolutionReason
         };
