@@ -90,6 +90,7 @@ public sealed class AccessRequestService : IAccessRequestService
             context.DeviceFingerprint,
             context.UserId,
             context.SessionId,
+            context.UserId,
             cancellationToken).ConfigureAwait(false);
 
         if (existingTrust.Count > 0)
@@ -318,11 +319,7 @@ public sealed class AccessRequestService : IAccessRequestService
 
         if (existing is not null)
         {
-            existing.RequestCount++;
-            existing.UpdatedAt = DateTimeOffset.UtcNow;
-            await _accessRequestRepository.UpdateAsync(existing, cancellationToken).ConfigureAwait(false);
-            await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-
+            // Reuse without writing: concurrent polls must not contend on the same row.
             return new AccessEvaluationResult
             {
                 Decision = AccessEvaluationDecision.Challenge,
