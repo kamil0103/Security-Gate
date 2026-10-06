@@ -22,6 +22,91 @@ public sealed class ExpiredAccessRequestCleanupPostgresTests : IAsyncLifetime
     public Task DisposeAsync() => _postgres.DisposeAsync().AsTask();
 
     [Fact]
+    public async Task ConcurrentApprovalTransactions_OnlyOneTrustGrantCommits()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseNpgsql(_postgres.GetConnectionString(), n =>
+                n.MigrationsAssembly("SecurityGateway.Infrastructure"))
+            .Options;
+
+        Guid appId, requestId;
+        await using (var setup = new ApplicationDbContext(options))
+        {
+            await setup.Database.MigrateAsync();
+            var app = new AppEntity
+            {
+                Name = "Concurrent approval",
+                Domain = "concurrent-approval.example.test",
+                UpstreamUrl = "http://upstream",
+                IsEnabled = true
+            };
+            setup.Applications.Add(app);
+            await setup.SaveChangesAsync();
+            var request = new AccessRequest
+            {
+                ApplicationId = app.Id,
+                ClientIp = "198.51.100.10",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30)
+            };
+            setup.AccessRequests.Add(request);
+            await setup.SaveChangesAsync();
+            appId = app.Id;
+            requestId = request.Id;
+        }
+
+        // Both independent contexts observe Pending before either writes.
+        await using var first = new ApplicationDbContext(options);
+        await using var second = new ApplicationDbContext(options);
+        var firstRequest = await first.AccessRequests.SingleAsync(r => r.Id == requestId);
+        var secondRequest = await second.AccessRequests.SingleAsync(r => r.Id == requestId);
+        Assert.Equal(AccessRequestStatus.Pending, firstRequest.Status);
+        Assert.Equal(AccessRequestStatus.Pending, secondRequest.Status);
+
+        firstRequest.Status = AccessRequestStatus.Approved;
+        secondRequest.Status = AccessRequestStatus.Approved;
+        first.TrustRecords.Add(new TrustRecord
+        {
+            ApplicationId = appId,
+            AccessRequestId = requestId,
+            Scope = TrustScope.Device,
+            DeviceFingerprint = "fp:concurrent"
+        });
+        second.TrustRecords.Add(new TrustRecord
+        {
+            ApplicationId = appId,
+            AccessRequestId = requestId,
+            Scope = TrustScope.Device,
+            DeviceFingerprint = "fp:concurrent"
+        });
+
+        using var start = new ManualResetEventSlim(false);
+        async Task<Exception?> AttemptAsync(ApplicationDbContext context)
+        {
+            await Task.Run(() => start.Wait());
+            try
+            {
+                await context.SaveChangesAsync();
+                return null;
+            }
+            catch (Exception ex)
+            {
+                return ex;
+            }
+        }
+
+        var attempts = new[] { AttemptAsync(first), AttemptAsync(second) };
+        start.Set();
+        var outcomes = await Task.WhenAll(attempts);
+        Assert.Single(outcomes, ex => ex is null);
+        Assert.Single(outcomes, ex => ex is DbUpdateException);
+
+        await using var verify = new ApplicationDbContext(options);
+        Assert.Equal(AccessRequestStatus.Approved,
+            (await verify.AccessRequests.SingleAsync(r => r.Id == requestId)).Status);
+        Assert.Equal(1, await verify.TrustRecords.CountAsync(r => r.AccessRequestId == requestId));
+    }
+
+    [Fact]
     public async Task Database_RejectsSecondTrustRecordForSameAccessRequest()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
