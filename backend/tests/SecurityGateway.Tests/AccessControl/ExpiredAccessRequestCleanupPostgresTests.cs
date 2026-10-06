@@ -22,6 +22,64 @@ public sealed class ExpiredAccessRequestCleanupPostgresTests : IAsyncLifetime
     public Task DisposeAsync() => _postgres.DisposeAsync().AsTask();
 
     [Fact]
+    public async Task Database_RejectsSecondTrustRecordForSameAccessRequest()
+    {
+        var options = new DbContextOptionsBuilder<ApplicationDbContext>()
+            .UseNpgsql(_postgres.GetConnectionString(), n =>
+                n.MigrationsAssembly("SecurityGateway.Infrastructure"))
+            .Options;
+        Guid appId, requestId;
+        await using (var setup = new ApplicationDbContext(options))
+        {
+            await setup.Database.MigrateAsync();
+            var app = new AppEntity
+            {
+                Name = "Unique trust test",
+                Domain = "unique-trust.example.test",
+                UpstreamUrl = "http://upstream",
+                IsEnabled = true
+            };
+            setup.Applications.Add(app);
+            await setup.SaveChangesAsync();
+            var request = new AccessRequest
+            {
+                ApplicationId = app.Id,
+                ClientIp = "198.51.100.10",
+                ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(30)
+            };
+            setup.AccessRequests.Add(request);
+            await setup.SaveChangesAsync();
+            appId = app.Id;
+            requestId = request.Id;
+        }
+
+        await using (var first = new ApplicationDbContext(options))
+        {
+            first.TrustRecords.Add(new TrustRecord
+            {
+                ApplicationId = appId,
+                AccessRequestId = requestId,
+                Scope = TrustScope.Session
+            });
+            await first.SaveChangesAsync();
+        }
+
+        await using (var second = new ApplicationDbContext(options))
+        {
+            second.TrustRecords.Add(new TrustRecord
+            {
+                ApplicationId = appId,
+                AccessRequestId = requestId,
+                Scope = TrustScope.Session
+            });
+            await Assert.ThrowsAsync<DbUpdateException>(() => second.SaveChangesAsync());
+        }
+
+        await using var verify = new ApplicationDbContext(options);
+        Assert.Equal(1, await verify.TrustRecords.CountAsync(r => r.AccessRequestId == requestId));
+    }
+
+    [Fact]
     public async Task ExpireBatchAsync_OnlyExpiresStalePendingRequests()
     {
         var options = new DbContextOptionsBuilder<ApplicationDbContext>()
