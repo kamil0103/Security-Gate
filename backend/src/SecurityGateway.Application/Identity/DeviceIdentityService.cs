@@ -25,12 +25,8 @@ public sealed class DeviceIdentityService : IDeviceIdentityService
 
         if (existingDevice is not null)
         {
-            UpdateDeviceSignals(existingDevice, request);
-            UpdateIpHistory(existingDevice, ipAddress);
-            existingDevice.LastSeenAt = DateTimeOffset.UtcNow;
-
-            await _deviceRepository.UpdateAsync(existingDevice, cancellationToken).ConfigureAwait(false);
-            await _unitOfWork.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+            // Recognition is read-only to avoid concurrent writes to the same device row.
+            // Activity telemetry requires a separate atomic update path.
 
             return MapToRecognitionResult(existingDevice);
         }
