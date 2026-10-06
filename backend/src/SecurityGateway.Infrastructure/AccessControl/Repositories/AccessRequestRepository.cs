@@ -74,7 +74,7 @@ public sealed class AccessRequestRepository : IAccessRequestRepository
             .Include(r => r.Application)
             .Include(r => r.IpAddress)
             .Include(r => r.User)
-            .Where(r => r.Status == AccessRequestStatus.Pending)
+            .Where(r => r.Status == AccessRequestStatus.Pending && r.ExpiresAt > DateTimeOffset.UtcNow)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
