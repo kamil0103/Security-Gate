@@ -82,8 +82,15 @@ public class AccessRequestsController : ControllerBase
         }
 
         var adminUserId = GetCurrentUserId();
-        var result = await _accessRequestService.ResolveAsync(id, adminUserId, request, cancellationToken).ConfigureAwait(false);
-        return Ok(result);
+        try
+        {
+            var result = await _accessRequestService.ResolveAsync(id, adminUserId, request, cancellationToken).ConfigureAwait(false);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message == "Access request is no longer pending.")
+        {
+            return Conflict(new { message = "This request has already been resolved. Refresh the approval queue." });
+        }
     }
 
     private async Task<bool> IsTrustedAdminContextAsync(CancellationToken cancellationToken)
