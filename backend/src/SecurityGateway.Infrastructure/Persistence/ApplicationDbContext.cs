@@ -192,6 +192,7 @@ public sealed class ApplicationDbContext : DbContext, IUnitOfWork
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => new { e.ApplicationId, e.ClientIp, e.DeviceFingerprint, e.UserId, e.SessionId, e.IsRevoked });
+            entity.HasIndex(e => e.AccessRequestId).IsUnique().HasFilter("\"AccessRequestId\" IS NOT NULL");
             entity.HasIndex(e => e.ExpiresAt);
             entity.Property(e => e.ClientIp).HasMaxLength(64);
             entity.Property(e => e.DeviceFingerprint).HasMaxLength(256);
