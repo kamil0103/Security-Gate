@@ -223,7 +223,17 @@ public sealed class AccessRequestService : IAccessRequestService
                 }
 
                 accessRequest.Status = AccessRequestStatus.Approved;
-                await CreateTrustRecordAsync(accessRequest, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await CreateTrustRecordAsync(accessRequest, cancellationToken).ConfigureAwait(false);
+                }
+                catch (DbUpdateException ex) when (ex.InnerException is PostgresException
+                    { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "IX_TrustRecords_AccessRequestId" })
+                {
+                    // AuditService saves the shared DbContext, which can flush the
+                    // trust insert before the final SaveChanges below.
+                    throw new InvalidOperationException("Access request is no longer pending.", ex);
+                }
                 break;
             case AccessRequestDecision.Deny:
                 accessRequest.Status = AccessRequestStatus.Denied;
