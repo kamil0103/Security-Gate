@@ -130,7 +130,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var first = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: fingerprint,
-            sessionId: originalSessionId));
+            sessionId: originalSessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         Assert.Equal(AccessEvaluationDecision.Challenge, first.Decision);
         var publicId = first.PublicId;
@@ -148,7 +148,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var second = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: fingerprint,
-            sessionId: newSessionId));
+            sessionId: newSessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         Assert.Equal(AccessEvaluationDecision.Allow, second.Decision);
         Assert.Equal(1, _context.AccessRequests.Count());
@@ -163,7 +163,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var first = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: fingerprint,
-            sessionId: sessionId));
+            sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         _context.ChangeTracker.Clear();
 
@@ -177,7 +177,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var second = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.99",
             fingerprint: fingerprint,
-            sessionId: sessionId));
+            sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         Assert.Equal(AccessEvaluationDecision.Allow, second.Decision);
     }
@@ -192,7 +192,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var first = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: fingerprint,
-            sessionId: originalSessionId));
+            sessionId: originalSessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         _context.ChangeTracker.Clear();
 
@@ -206,7 +206,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var second = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: fingerprint,
-            sessionId: newSessionId));
+            sessionId: newSessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         Assert.Equal(AccessEvaluationDecision.Challenge, second.Decision);
     }
@@ -220,7 +220,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var first = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: fingerprint,
-            sessionId: sessionId));
+            sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         _context.ChangeTracker.Clear();
 
@@ -234,7 +234,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var second = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.99",
             fingerprint: fingerprint,
-            sessionId: sessionId));
+            sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         Assert.Equal(AccessEvaluationDecision.Challenge, second.Decision);
     }
@@ -249,7 +249,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var first = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: fingerprint,
-            sessionId: sessionId));
+            sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         _context.ChangeTracker.Clear();
 
@@ -263,7 +263,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var second = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: otherFingerprint,
-            sessionId: sessionId));
+            sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         Assert.Equal(AccessEvaluationDecision.Challenge, second.Decision);
     }
@@ -277,7 +277,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var first = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: fingerprint,
-            sessionId: sessionId));
+            sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         _context.ChangeTracker.Clear();
 
@@ -293,7 +293,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
             var result = await _service.EvaluateAccessAsync(CreateContext(
                 clientIp: "198.51.100.10",
                 fingerprint: fingerprint,
-                sessionId: sessionId));
+                sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
             Assert.Equal(AccessEvaluationDecision.Allow, result.Decision);
         }
@@ -310,7 +310,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var first = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: "198.51.100.10",
             fingerprint: fingerprint,
-            sessionId: sessionId));
+            sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         _context.ChangeTracker.Clear();
 
@@ -327,7 +327,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
             .Select(_ => _service.EvaluateAccessAsync(CreateContext(
                 clientIp: "198.51.100.10",
                 fingerprint: fingerprint,
-                sessionId: sessionId)))
+                sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id)))
             .ToArray();
 
         var results = await Task.WhenAll(tasks);
@@ -346,7 +346,7 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         var first = await _service.EvaluateAccessAsync(CreateContext(
             clientIp: clientIp,
             fingerprint: fingerprint,
-            sessionId: sessionId));
+            sessionId: sessionId, isAuthenticated: true, userId: _adminUser.Id));
 
         _context.ChangeTracker.Clear();
 
@@ -362,6 +362,30 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         Assert.Null(trustRecord.ClientIp);
         Assert.Null(trustRecord.SessionId);
         Assert.Equal(fingerprint, trustRecord.DeviceFingerprint);
+    }
+
+    [Fact]
+    public async Task ResolveAsync_AnonymousChallenge_ApprovalRejectedWithoutTrustRecord()
+    {
+        var challenge = await _service.EvaluateAccessAsync(CreateContext(
+            clientIp: "198.51.100.10",
+            fingerprint: "fp:anonymous",
+            sessionId: "anonymous-session"));
+
+        Assert.Equal(AccessEvaluationDecision.Challenge, challenge.Decision);
+        _context.ChangeTracker.Clear();
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => _service.ResolveAsync(
+            challenge.AccessRequest!.Id,
+            _adminUser.Id,
+            new ResolveAccessRequestRequest
+            {
+                Decision = AccessRequestDecision.Approve,
+                ApprovalScope = ApprovalScope.Device
+            }));
+
+        Assert.Empty(_context.TrustRecords);
+        Assert.Equal(AccessRequestStatus.Pending, _context.AccessRequests.Single(r => r.Id == challenge.AccessRequest!.Id).Status);
     }
 
     private AccessEvaluationContext CreateContext(
