@@ -91,7 +91,7 @@ public class DeviceIdentityServiceTests : IDisposable
 
         Assert.Equal(DeviceTrustStatus.Blocked, recognized.TrustStatus);
         Assert.False(recognized.IsTrusted);
-        var persisted = await _context.Devices.SingleAsync(d => d.Id == device.Id);
+        var persisted = await _context.Devices.Include(d => d.IpHistory).SingleAsync(d => d.Id == device.Id);
         Assert.Equal(originalLastSeen, persisted.LastSeenAt);
         Assert.Equal(originalIpCount, persisted.IpHistory.Sum(ip => ip.RequestCount));
         Assert.DoesNotContain(persisted.IpHistory, ip => ip.IpAddress == "192.168.1.2");
