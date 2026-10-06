@@ -44,6 +44,12 @@ public sealed class DeviceRecognitionPostgresConcurrencyTests : IAsyncLifetime
             await setup.SaveChangesAsync();
         }
 
+        DateTimeOffset persistedLastSeen;
+        await using (var baseline = new ApplicationDbContext(options))
+        {
+            persistedLastSeen = (await baseline.Devices.SingleAsync(d => d.Id == device.Id)).LastSeenAt;
+        }
+
         var request = new DeviceEnrollmentRequest
         {
             DeviceId = "client-device-123",
@@ -65,6 +71,6 @@ public sealed class DeviceRecognitionPostgresConcurrencyTests : IAsyncLifetime
         await using var verify = new ApplicationDbContext(options);
         var persisted = await verify.Devices.SingleAsync(d => d.Id == device.Id);
         Assert.Equal(DeviceTrustStatus.Blocked, persisted.TrustStatus);
-        Assert.Equal(device.LastSeenAt, persisted.LastSeenAt);
+        Assert.Equal(persistedLastSeen, persisted.LastSeenAt);
     }
 }
