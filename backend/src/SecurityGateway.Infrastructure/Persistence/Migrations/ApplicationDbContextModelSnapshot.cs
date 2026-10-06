@@ -322,7 +322,7 @@ namespace SecurityGateway.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("AccessRequestId")
                         .IsUnique()
-                        .HasFilter("\\\"AccessRequestId\\\" IS NOT NULL");
+                        .HasFilter("\"AccessRequestId\" IS NOT NULL");
 
                     b.HasIndex("ExpiresAt");
 
