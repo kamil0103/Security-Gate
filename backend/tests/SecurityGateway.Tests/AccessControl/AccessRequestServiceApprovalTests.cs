@@ -152,6 +152,28 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
     }
 
     [Fact]
+    public async Task ResolveAsync_SecondApproval_DoesNotCreateAnotherTrustRecord()
+    {
+        var challenge = await _service.EvaluateAccessAsync(CreateContext(
+            clientIp: "198.51.100.10", fingerprint: "fp:duplicate-approval",
+            sessionId: "duplicate-approval-session", isAuthenticated: true,
+            userId: _adminUser.Id));
+
+        var decision = new ResolveAccessRequestRequest
+        {
+            Decision = AccessRequestDecision.Approve,
+            ApprovalScope = ApprovalScope.Device
+        };
+        _context.ChangeTracker.Clear();
+        await _service.ResolveAsync(challenge.AccessRequest!.Id, _adminUser.Id, decision);
+        Assert.Single(await _context.TrustRecords.ToListAsync());
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _service.ResolveAsync(challenge.AccessRequest.Id, _adminUser.Id, decision));
+        Assert.Single(await _context.TrustRecords.ToListAsync());
+    }
+
+    [Fact]
     public async Task GetStatusAsync_ExpiredPendingRequest_ReportsExpiredBeforeCleanupRuns()
     {
         var challenge = await _service.EvaluateAccessAsync(CreateContext(
