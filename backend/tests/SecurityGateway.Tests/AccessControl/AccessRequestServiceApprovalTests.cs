@@ -118,6 +118,26 @@ public sealed class AccessRequestServiceApprovalTests : IDisposable
         _context.Dispose();
     }
 
+    [Fact]
+    public async Task GetPendingAsync_ExcludesExpiredRequests()
+    {
+        var challenge = await _service.EvaluateAccessAsync(CreateContext(
+            clientIp: "198.51.100.10",
+            fingerprint: "fp:expired",
+            sessionId: "expired-session"));
+
+        Assert.Equal(AccessEvaluationDecision.Challenge, challenge.Decision);
+        var pending = await _context.AccessRequests.SingleAsync(r => r.Id == challenge.AccessRequest!.Id);
+        pending.ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1);
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var repository = new AccessRequestRepository(_context);
+        var visible = await repository.GetPendingAsync();
+
+        Assert.DoesNotContain(visible, r => r.Id == challenge.AccessRequest!.Id);
+    }
+
     [Theory]
     [InlineData(ApprovalScope.Device)]
     [InlineData(ApprovalScope.Permanent)]
