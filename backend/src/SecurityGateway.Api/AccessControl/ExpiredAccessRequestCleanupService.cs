@@ -52,7 +52,7 @@ public sealed class ExpiredAccessRequestCleanupService : BackgroundService
         }
     }
 
-    private async Task ExpireBatchAsync(CancellationToken cancellationToken)
+    public async Task<int> ExpireBatchAsync(CancellationToken cancellationToken = default)
     {
         using var scope = _scopeFactory.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -76,5 +76,7 @@ public sealed class ExpiredAccessRequestCleanupService : BackgroundService
         {
             _logger.LogInformation("Expired {Count} stale access requests", expired);
         }
+
+        return expired;
     }
 }
