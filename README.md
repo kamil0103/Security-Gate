@@ -78,6 +78,8 @@ See [START_HERE.md](./docs/START_HERE.md) for full setup instructions.
 
 ## Documentation
 
+- [Operator and Maintenance Guide](./docs/OPERATOR_GUIDE.md) — current access rules, approvals, routing, notifications, deployment, backups and recovery troubleshooting. Describes the inspected installed version; see its revision/feature caveats.
+
 - [Project Specification](./docs/PROJECT_SPECIFICATION.md)
 - [Roadmap](./docs/ROADMAP.md)
 - [Contributing](./docs/CONTRIBUTING.md)
